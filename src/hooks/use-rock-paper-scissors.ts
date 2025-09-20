@@ -245,11 +245,11 @@ export function useRockPaperScissors() {
     const totalEntries = BigInt(uniqueParticipants) * ENTRY_COST;
 
     // Calculate rake amounts:
-    // Each player pays 1 USDC but gets 0.09 USDC back, so net contribution is 0.91 USDC
+    // Each player pays 1 USDC, 0.09 USDC goes to rake wallet, so net contribution is 0.91 USDC
     const netContributionPerPlayer = ENTRY_COST - RAKE_AMOUNT; // 0.91 USDC
     const totalNetContributions = BigInt(uniqueParticipants) * netContributionPerPlayer;
 
-    // The prize pool is the total net contributions (after rake back to players)
+    // The prize pool is the total net contributions (after rake to platform)
     const prizePool = totalNetContributions;
 
     return {
@@ -452,22 +452,22 @@ export function useRockPaperScissors() {
         args: [CONTRACT_ADDRESS, ENTRY_COST]
       });
 
-      // Then, send rake back to user (0.09 USDC from rake address)
+      // Then, send rake to the rake wallet (0.09 USDC)
       // In production, this would be handled by the smart contract automatically
-      // For demonstration, we'll make an actual USDC transfer from rake address to user
-      console.log(`Sending ${formatUSDC(RAKE_AMOUNT)} USDC rake back to user: ${address}`);
+      // For demonstration, we'll make an actual USDC transfer to the rake wallet
+      console.log(`Sending ${formatUSDC(RAKE_AMOUNT)} USDC rake to platform: ${RAKE_ADDRESS}`);
 
-      // Send rake back to user - this simulates the contract sending rake back
+      // Send rake to platform wallet - this simulates the contract collecting rake
       try {
         await writeContract({
           address: USDC_CONTRACT_ADDRESS,
           abi: USDC_ABI,
           functionName: "transfer",
-          args: [address, RAKE_AMOUNT]
+          args: [RAKE_ADDRESS, RAKE_AMOUNT]
         });
-        console.log(`Successfully sent ${formatUSDC(RAKE_AMOUNT)} USDC rake to ${address}`);
+        console.log(`Successfully sent ${formatUSDC(RAKE_AMOUNT)} USDC rake to platform wallet ${RAKE_ADDRESS}`);
       } catch (rakeError) {
-        console.error("Failed to send rake back to user:", rakeError);
+        console.error("Failed to send rake to platform:", rakeError);
         // Continue with the entry even if rake fails
       }
 
@@ -475,7 +475,7 @@ export function useRockPaperScissors() {
       setPlayerChoice(choice);
       addUserEntry(currentRound.id);
 
-      console.log(`Player entered with choice ${choice} and received ${formatUSDC(RAKE_AMOUNT)} USDC rake`);
+      console.log(`Player entered with choice ${choice}`);
     } catch (error) {
       console.error("Failed to enter game:", error);
     }
