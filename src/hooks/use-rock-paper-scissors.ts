@@ -33,7 +33,9 @@ const ENTRY_WINDOW_MINUTES = 15; // 15 minutes to enter (continuous back-to-back
 const ENTRY_COST = BigInt(1000000); // 1 USDC (6 decimals)
 const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
 const RAKE_AMOUNT = BigInt(90000); // 0.09 USDC (6 decimals) - platform fee sent to owner wallet
-const RAKE_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798";
+const POT_AMOUNT = BigInt(910000); // 0.91 USDC (6 decimals) - amount that goes to the pot
+const CREATOR_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"; // Creator wallet for 9% fee
+const POT_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"; // Temporary pot address - should be a smart contract in production
 
 // USDC Contract ABI for direct transfers
 const USDC_ABI = [
@@ -50,13 +52,12 @@ const USDC_ABI = [
 
 const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC contract address
 
-// SINGLE TRANSACTION ENTRY SYSTEM:
-// Players send $1 USDC directly to the rake address using USDC transfer
-// The transaction automatically distributes the funds:
-// - $0.09 USDC stays in the rake address as platform fee
-// - $0.91 USDC is tracked and added to the prize pool virtually
-// This eliminates the need for pre-approval or multiple transactions
-// Entry is confirmed by successful payment to the rake address
+// DUAL TRANSACTION ENTRY SYSTEM:
+// Players make two USDC transfers:
+// 1. $0.91 USDC to the pot address (prize pool)
+// 2. $0.09 USDC to the creator address (platform fee)
+// Both transactions must complete successfully for entry to be confirmed
+// Entry is confirmed when both payments are successful
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
@@ -84,6 +85,8 @@ export function useRockPaperScissors() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPendingChoice, setPaymentPendingChoice] = useState<GameChoice | null>(null);
+  const [potTransactionHash, setPotTransactionHash] = useState<string | null>(null);
+  const [creatorTransactionHash, setCreatorTransactionHash] = useState<string | null>(null);
 
   // Check if current Farcaster user has already entered this round
   const hasUserEnteredRound = useCallback((roundId: number): boolean => {
@@ -425,15 +428,15 @@ export function useRockPaperScissors() {
     setPaymentPendingChoice(choice);
 
     try {
-      console.log(`Entering game with choice ${choice} - sending $1 USDC to rake address...`);
-      console.log(`Payment breakdown: $1.00 USDC total → $0.09 USDC rake + $0.91 USDC to prize pool`);
+      console.log(`Entering game with choice ${choice} - splitting $1 USDC payment...`);
+      console.log(`Payment breakdown: $0.91 USDC to pot + $0.09 USDC to creator`);
 
-      // Single USDC transfer to rake address - this handles everything in one transaction
+      // First transfer: $0.91 USDC to pot address
       writeContract({
         address: USDC_CONTRACT_ADDRESS,
         abi: USDC_ABI,
         functionName: 'transfer',
-        args: [RAKE_ADDRESS, ENTRY_COST],
+        args: [POT_ADDRESS, POT_AMOUNT],
       });
     } catch (error) {
       console.error("Failed to initiate game entry:", error);
@@ -445,17 +448,35 @@ export function useRockPaperScissors() {
   // Handle transaction confirmations
   useEffect(() => {
     if (isConfirmed && hash && paymentPendingChoice !== null && currentRound) {
-      // Single transaction confirmed - player successfully entered
-      console.log(`✅ Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)}) - $1 USDC payment confirmed`);
-      console.log(`💰 Payment sent to rake address: ${RAKE_ADDRESS}`);
-      console.log(`💰 Entry fee breakdown: $1.00 USDC total → $0.09 USDC rake to platform + $0.91 USDC to prize pool`);
+      if (!potTransactionHash) {
+        // First transaction (pot) confirmed
+        setPotTransactionHash(hash);
+        console.log(`✅ Pot payment confirmed: $0.91 USDC to ${POT_ADDRESS}`);
+        console.log(`🔄 Initiating creator payment: $0.09 USDC to ${CREATOR_ADDRESS}`);
 
-      setPlayerChoice(paymentPendingChoice);
-      addUserEntry(currentRound.id);
+        // Second transfer: $0.09 USDC to creator address
+        writeContract({
+          address: USDC_CONTRACT_ADDRESS,
+          abi: USDC_ABI,
+          functionName: 'transfer',
+          args: [CREATOR_ADDRESS, RAKE_AMOUNT],
+        });
+      } else if (!creatorTransactionHash) {
+        // Second transaction (creator) confirmed
+        setCreatorTransactionHash(hash);
+        console.log(`✅ Creator payment confirmed: $0.09 USDC to ${CREATOR_ADDRESS}`);
+        console.log(`🎉 Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
+        console.log(`💰 Total payments: $0.91 USDC to pot + $0.09 USDC to creator = $1.00 USDC`);
 
-      // Reset states
-      setIsSubmitting(false);
-      setPaymentPendingChoice(null);
+        setPlayerChoice(paymentPendingChoice);
+        addUserEntry(currentRound.id);
+
+        // Reset all states
+        setIsSubmitting(false);
+        setPaymentPendingChoice(null);
+        setPotTransactionHash(null);
+        setCreatorTransactionHash(null);
+      }
     }
 
     if (writeError) {
@@ -463,8 +484,10 @@ export function useRockPaperScissors() {
       console.log("❌ Payment failed - user is NOT entered in this round");
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
+      setPotTransactionHash(null);
+      setCreatorTransactionHash(null);
     }
-  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry]);
+  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, potTransactionHash, creatorTransactionHash, writeContract]);
 
   // Legacy functions for backwards compatibility with existing UI
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
@@ -552,6 +575,7 @@ export function useRockPaperScissors() {
 
     // Constants
     ENTRY_COST,
-    RAKE_ADDRESS
+    CREATOR_ADDRESS,
+    POT_ADDRESS
   };
 }

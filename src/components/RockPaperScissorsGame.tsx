@@ -186,12 +186,12 @@ export default function RockPaperScissorsGame() {
                           <Button
                             onClick={() => handleChoiceSelect(choice)}
                             disabled={isSubmitting || isConfirming || paymentPendingChoice !== null}
-                            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg"
+                            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-2 rounded-lg shadow-lg text-xs"
                           >
                             {paymentPendingChoice === choice ? (
                               isConfirming ? "Entering..." : "Entry Pending"
                             ) : (
-                              "Pay $1 USDC"
+                              "Enter $1 USDC"
                             )}
                           </Button>
                         </div>
