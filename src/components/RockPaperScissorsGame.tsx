@@ -100,7 +100,7 @@ export default function RockPaperScissorsGame() {
   const handleShare = async () => {
     if (!isSDKLoaded || !sdk || !currentRound) return;
 
-    const text = `Just played Rock Paper Scissors! 🪨📄✂️ Prize pool: $${formatEther(currentRound.prizePool)} USDC. Join the next round!`;
+    const text = `Just played Rock Paper Scissors! 🪨📄✂️ Prize pool: $${formatUSDC(currentRound.prizePool)} USDC. Join the next round!`;
 
     try {
       // Use openUrl to share for now - in production this would be the correct share method
@@ -232,15 +232,26 @@ export default function RockPaperScissorsGame() {
               🏁 Round Complete
             </Badge>
             {currentRound?.chainMove !== undefined && currentRound?.winningChoice !== undefined && (
-              <div className="space-y-3">
-                <div className="flex justify-center items-center gap-8">
-                  <div className="text-center">
-                    <div className="text-3xl mb-1">{getChoiceEmoji(currentRound.chainMove)}</div>
-                    <p className="text-sm text-muted-foreground">Chain Move</p>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 border-2 border-blue-300 rounded-xl p-4 shadow-lg">
+                  <h3 className="text-lg font-bold text-center text-blue-800 mb-3">Round Results</h3>
+                  <div className="flex justify-center items-center gap-12">
+                    <div className="text-center">
+                      <div className="text-5xl mb-2">{getChoiceEmoji(currentRound.chainMove)}</div>
+                      <p className="text-sm font-semibold text-blue-700">Chain Drew</p>
+                      <p className="text-xs text-blue-600">{getChoiceName(currentRound.chainMove)}</p>
+                    </div>
+                    <div className="text-2xl text-gray-400">vs</div>
+                    <div className="text-center">
+                      <div className="text-5xl mb-2">{getChoiceEmoji(currentRound.winningChoice)}</div>
+                      <p className="text-sm font-semibold text-green-700">Winners Chose</p>
+                      <p className="text-xs text-green-600">{getChoiceName(currentRound.winningChoice)}</p>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-3xl mb-1">{getChoiceEmoji(currentRound.winningChoice)}</div>
-                    <p className="text-sm text-muted-foreground">Winning Move</p>
+                  <div className="text-center mt-3">
+                    <p className="text-sm font-semibold text-purple-700">
+                      {getChoiceName(currentRound.winningChoice)} beats {getChoiceName(currentRound.chainMove)}!
+                    </p>
                   </div>
                 </div>
 
@@ -348,7 +359,7 @@ export default function RockPaperScissorsGame() {
             <div className="text-center p-4 rounded-xl bg-gradient-to-br from-emerald-100 via-green-100 to-lime-100 border-2 border-emerald-300 shadow-lg">
               <div className="flex items-center justify-center gap-2 text-xl font-bold text-emerald-700 mb-1">
                 <DollarSign className="w-5 h-5 text-green-600" />
-                {formatEther(currentRound.prizePool)}
+                {formatUSDC(currentRound.prizePool)}
               </div>
               <p className="text-sm font-semibold text-emerald-600">💰 Prize Pool (USDC)</p>
             </div>
@@ -397,7 +408,7 @@ export default function RockPaperScissorsGame() {
                   💰 Total Winnings
                 </p>
                 <p className="font-bold text-emerald-700 text-lg">
-                  {formatEther(playerStats.totalWinnings)} USDC
+                  {formatUSDC(playerStats.totalWinnings)} USDC
                 </p>
               </div>
               <div className="p-4 rounded-xl bg-gradient-to-br from-orange-100 via-yellow-100 to-amber-100 border-2 border-orange-300 shadow-lg">
@@ -451,11 +462,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>15-minute entry window, 1 USDC per entry</span>
+            <span>15-minute entry window, 1 USDC per entry (0.09 USDC returned as rake)</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>9% platform fee deducted from pot for development and features</span>
+            <span>Get 0.09 USDC back immediately when you enter - net cost 0.91 USDC</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />

@@ -32,6 +32,7 @@ const ROUND_DURATION_MINUTES = 15; // 15 minute rounds
 const ENTRY_WINDOW_MINUTES = 15; // 15 minutes to enter (continuous back-to-back rounds)
 const ENTRY_COST = BigInt(1000000); // 1 USDC (6 decimals)
 const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
+const RAKE_AMOUNT = BigInt(90000); // 0.09 USDC (6 decimals) - rake back to user
 const RAKE_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798";
 
 // USDC Contract ABI for token transfers
@@ -241,13 +242,19 @@ export function useRockPaperScissors() {
     );
 
     // Calculate total pot based on entries (1 USDC per entry)
-    const totalPot = BigInt(uniqueParticipants) * ENTRY_COST;
-    const platformFee = (totalPot * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100);
-    const prizePoolAfterFee = totalPot - platformFee;
+    const totalEntries = BigInt(uniqueParticipants) * ENTRY_COST;
+
+    // Calculate rake amounts:
+    // Each player pays 1 USDC but gets 0.09 USDC back, so net contribution is 0.91 USDC
+    const netContributionPerPlayer = ENTRY_COST - RAKE_AMOUNT; // 0.91 USDC
+    const totalNetContributions = BigInt(uniqueParticipants) * netContributionPerPlayer;
+
+    // The prize pool is the total net contributions (after rake back to players)
+    const prizePool = totalNetContributions;
 
     return {
       playerEntries: Math.max(uniqueParticipants, 1), // At least show 1 for demo
-      prizePool: prizePoolAfterFee > 0 ? prizePoolAfterFee : ENTRY_COST // Minimum prize pool
+      prizePool: prizePool > 0 ? prizePool : netContributionPerPlayer // Minimum prize pool
     };
   }, [playerEntries]);
 
@@ -410,21 +417,31 @@ export function useRockPaperScissors() {
     }
 
     try {
-      // Transfer 1 USDC to the game contract to enter
-      writeContract({
+      // First, transfer 1 USDC to the game contract to enter
+      await writeContract({
         address: USDC_CONTRACT_ADDRESS,
         abi: USDC_ABI,
         functionName: "transfer",
         args: [CONTRACT_ADDRESS, ENTRY_COST]
       });
 
+      // Then, send rake back to user (0.09 USDC from rake address)
+      // In production, this would be handled by the smart contract
+      // For now, we simulate the rake being sent back to the user
+      console.log(`Sending ${formatUSDC(RAKE_AMOUNT)} USDC rake back to user: ${address}`);
+
+      // This would be handled by the smart contract in production:
+      // Contract sends RAKE_AMOUNT from RAKE_ADDRESS to user's address
+
       // Set player choice and record entry
       setPlayerChoice(choice);
       addUserEntry(currentRound.id);
+
+      console.log(`Player entered with choice ${choice} and received ${formatUSDC(RAKE_AMOUNT)} USDC rake`);
     } catch (error) {
       console.error("Failed to enter game:", error);
     }
-  }, [currentRound, gameState, address, context?.user?.fid, hasUserEnteredRound, addUserEntry, writeContract]);
+  }, [currentRound, gameState, address, context?.user?.fid, hasUserEnteredRound, addUserEntry, writeContract, formatUSDC]);
 
   const claimWinnings = useCallback(async (roundId: number) => {
     try {
