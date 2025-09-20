@@ -55,8 +55,8 @@ export default function RockPaperScissorsGame() {
       const lastRoundCheck = localStorage.getItem('lastRoundCheck');
       const currentTime = Date.now();
 
-      // If user hasn't visited in more than 6 hours and there's a completed round
-      if (lastVisit && (currentTime - parseInt(lastVisit)) > 6 * 60 * 60 * 1000) {
+      // If user hasn't visited in more than 30 minutes and there's a completed round
+      if (lastVisit && (currentTime - parseInt(lastVisit)) > 30 * 60 * 1000) {
         // Mock check for unclaimed winnings - in production this would check the blockchain
         const hasUnclaimedWinnings = Math.random() > 0.7; // 30% chance of unclaimed winnings
         if (hasUnclaimedWinnings && currentRound?.id !== parseInt(lastRoundCheck || '0')) {
@@ -109,7 +109,7 @@ export default function RockPaperScissorsGame() {
                 </ClientOnlyTimeDisplay>
                 <ClientOnlyTimeDisplay>
                   <Progress
-                    value={(timeRemaining / (15 * 60 * 1000)) * 100}
+                    value={(timeRemaining / (10 * 60 * 1000)) * 100}
                     className="h-3 mb-2"
                     style={{
                       background: 'linear-gradient(to right, #f97316, #dc2626)'
@@ -177,7 +177,7 @@ export default function RockPaperScissorsGame() {
               </ClientOnlyTimeDisplay>
               <ClientOnlyTimeDisplay>
                 <Progress
-                  value={100 - ((timeRemaining / (6 * 60 * 60 * 1000)) * 100)}
+                  value={100 - ((timeRemaining / (15 * 60 * 1000)) * 100)}
                   className="h-4 mb-3"
                   style={{
                     background: 'linear-gradient(to right, #8b5cf6, #ec4899)'
@@ -283,7 +283,7 @@ export default function RockPaperScissorsGame() {
           🪨📄✂️ Rock Paper Scissors
         </h1>
         <p className="text-lg text-slate-700 font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Rounds every 6 hours • 15-minute entry window
+          15-minute rounds • 10-minute entry window
         </p>
         <div className="flex items-center justify-center gap-2 text-sm text-blue-600 font-semibold">
           <Trophy className="w-4 h-4 text-yellow-500" />
@@ -413,11 +413,11 @@ export default function RockPaperScissorsGame() {
         <CardContent className="text-sm text-slate-700 space-y-3 p-6">
           <div className="flex items-start gap-2">
             <Clock className="w-4 h-4 text-blue-500 mt-0.5" />
-            <span>Rounds start every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)</span>
+            <span>New rounds start every 15 minutes, running continuously</span>
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>15-minute entry window, 1 USDC per entry</span>
+            <span>10-minute entry window, 1 USDC per entry</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />

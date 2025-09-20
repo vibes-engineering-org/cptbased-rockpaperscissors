@@ -27,8 +27,8 @@ export interface PlayerStats {
   currentStreak: number;
 }
 
-const GAME_ROUNDS = [0, 6, 12, 18]; // UTC hours: 00:00, 06:00, 12:00, 18:00
-const ENTRY_WINDOW_MINUTES = 15;
+const ROUND_DURATION_MINUTES = 15; // 15 minute rounds
+const ENTRY_WINDOW_MINUTES = 10; // 10 minutes to enter, 5 minutes for resolution
 const ENTRY_COST = parseEther("1"); // 1 USDC
 const RAKE_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798";
 
@@ -90,37 +90,50 @@ export function useRockPaperScissors() {
     hash: txHash,
   });
 
-  // Calculate next round start time
+  // Calculate next round start time (15-minute rounds)
   const getNextRoundStartTime = useCallback(() => {
-    const now = new Date();
-    const currentHour = now.getUTCHours();
+    const now = Date.now();
+    const roundDurationMs = ROUND_DURATION_MINUTES * 60 * 1000;
 
-    // Find next game round
-    const nextRound = GAME_ROUNDS.find(hour => hour > currentHour) ?? GAME_ROUNDS[0];
-    const nextDate = new Date(now);
+    // Calculate how many rounds have passed since epoch
+    const roundsSinceEpoch = Math.floor(now / roundDurationMs);
 
-    if (nextRound <= currentHour) {
-      nextDate.setUTCDate(nextDate.getUTCDate() + 1);
-    }
-
-    nextDate.setUTCHours(nextRound, 0, 0, 0);
-    return nextDate.getTime();
+    // Next round starts at the beginning of the next 15-minute window
+    return (roundsSinceEpoch + 1) * roundDurationMs;
   }, []);
 
   // Calculate current round info
   const getCurrentRoundInfo = useCallback(() => {
     const now = Date.now();
-    const nextStart = getNextRoundStartTime();
-    const currentStart = nextStart - (6 * 60 * 60 * 1000); // 6 hours before next
-    const entryEndTime = currentStart + (ENTRY_WINDOW_MINUTES * 60 * 1000);
+    const roundDurationMs = ROUND_DURATION_MINUTES * 60 * 1000;
+    const entryWindowMs = ENTRY_WINDOW_MINUTES * 60 * 1000;
 
-    const roundId = Math.floor(currentStart / (6 * 60 * 60 * 1000));
+    // Calculate current round start time
+    const roundsSinceEpoch = Math.floor(now / roundDurationMs);
+    const currentStart = roundsSinceEpoch * roundDurationMs;
+    const entryEndTime = currentStart + entryWindowMs;
+    const roundEndTime = currentStart + roundDurationMs;
+
+    const roundId = roundsSinceEpoch;
 
     let state: GameState = "waiting";
     if (now >= currentStart && now <= entryEndTime) {
       state = "entry";
-    } else if (now > entryEndTime && now < nextStart) {
+    } else if (now > entryEndTime && now < roundEndTime) {
       state = "complete";
+    } else {
+      // We're in the gap before the next round (shouldn't happen with back-to-back rounds)
+      state = "waiting";
+    }
+
+    let timeRemaining: number;
+    if (state === "entry") {
+      timeRemaining = entryEndTime - now;
+    } else if (state === "complete") {
+      timeRemaining = roundEndTime - now;
+    } else {
+      // Time until next round starts
+      timeRemaining = ((roundsSinceEpoch + 1) * roundDurationMs) - now;
     }
 
     return {
@@ -128,9 +141,9 @@ export function useRockPaperScissors() {
       startTime: currentStart,
       entryEndTime,
       state,
-      timeRemaining: state === "entry" ? entryEndTime - now : nextStart - now
+      timeRemaining
     };
-  }, [getNextRoundStartTime]);
+  }, []);
 
   // Update game state every second
   useEffect(() => {
