@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useReadContract } from "wagmi";
 import { base } from "wagmi/chains";
 import { parseEther, formatEther } from "viem";
 import { useMiniAppSdk } from "./use-miniapp-sdk";
@@ -37,25 +37,86 @@ const PRIZE_POOL_AMOUNT = BigInt(1000000); // 1.00 USDC (6 decimals) - full entr
 const CREATOR_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"; // Creator wallet for 9% fee
 const POT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Prize pool address (different from creator)
 
-// USDC Contract ABI for direct transfers
-const USDC_ABI = [
+// Rock Paper Scissors Game Contract ABI
+const GAME_CONTRACT_ABI = [
   {
-    name: "transfer",
+    name: "enterGame",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
-      { name: "to", type: "address" },
+      { name: "choice", type: "uint8" },
+      { name: "roundId", type: "uint256" }
+    ]
+  },
+  {
+    name: "claimWinnings",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "roundId", type: "uint256" }
+    ]
+  },
+  {
+    name: "hasPlayerEntered",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "roundId", type: "uint256" },
+      { name: "player", type: "address" }
+    ],
+    outputs: [
+      { name: "", type: "bool" }
+    ]
+  },
+  {
+    name: "getCurrentRound",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "id", type: "uint256" },
+      { name: "startTime", type: "uint256" },
+      { name: "prizePool", type: "uint256" },
+      { name: "chainMove", type: "uint8" },
+      { name: "playerEntries", type: "uint256" },
+      { name: "isComplete", type: "bool" }
+    ]
+  }
+] as const;
+
+const GAME_CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Replace with deployed contract address
+
+// USDC Approval ABI for allowance management
+const USDC_ABI = [
+  {
+    name: "approve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
       { name: "amount", type: "uint256" }
+    ]
+  },
+  {
+    name: "allowance",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" }
+    ],
+    outputs: [
+      { name: "", type: "uint256" }
     ]
   }
 ] as const;
 
 const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC contract address
 
-// SINGLE TRANSACTION ENTRY SYSTEM:
-// Players make one USDC transfer of $1.00 USDC to the prize pool address
-// Upon settlement, 9% of the total prize pool goes to owner, 91% split among winners
-// Entry is confirmed when the payment is successful
+// SMART CONTRACT ENTRY SYSTEM:
+// Players approve USDC spending and call enterGame() on the contract
+// Contract automatically: charges $1 USDC, sends 9% to owner, puts 91% in prize pool
+// Winners can claim their share of the prize pool directly from the contract
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
@@ -85,6 +146,17 @@ export function useRockPaperScissors() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPendingChoice, setPaymentPendingChoice] = useState<GameChoice | null>(null);
+  const [needsApproval, setNeedsApproval] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+
+  // Check USDC allowance for the game contract
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    address: USDC_CONTRACT_ADDRESS,
+    abi: USDC_ABI,
+    functionName: 'allowance',
+    args: address ? [address, GAME_CONTRACT_ADDRESS] : undefined,
+    query: { enabled: !!address }
+  });
 
   // Check if current Farcaster user has already entered this round
   const hasUserEnteredRound = useCallback((roundId: number): boolean => {
@@ -223,18 +295,18 @@ export function useRockPaperScissors() {
       0
     );
 
-    // Calculate total prize pool: each player pays 1 USDC, all goes to prize pool initially
-    const totalPrizePool = BigInt(uniqueParticipants) * ENTRY_COST;
-
-    // For settlement: 9% goes to owner, 91% split among winners
-    const ownerFee = (totalPrizePool * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100);
-    const winnersShare = totalPrizePool - ownerFee;
+    // Smart contract behavior: each player pays 1 USDC total
+    // Contract automatically sends 9% ($0.09) to owner, puts 91% ($0.91) in prize pool
+    const totalCollected = BigInt(uniqueParticipants) * ENTRY_COST; // Total $1.00 per player
+    const ownerFee = (totalCollected * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100); // 9% = $0.09 per player
+    const actualPrizePool = totalCollected - ownerFee; // 91% = $0.91 per player
 
     return {
       playerEntries: uniqueParticipants,
-      prizePool: totalPrizePool, // Show full prize pool amount
+      prizePool: actualPrizePool, // Show actual prize pool (91% of total)
+      totalCollected, // Total USDC collected from players
       ownerFee,
-      winnersShare
+      winnersShare: actualPrizePool // Winners get the entire prize pool
     };
   }, [playerEntries]);
 
@@ -424,6 +496,34 @@ export function useRockPaperScissors() {
     }
   }, [address, context?.user?.fid, winners, playerEntries, getLiveGameData]);
 
+  // Check if approval is needed
+  useEffect(() => {
+    if (allowance !== undefined) {
+      const currentAllowance = allowance as bigint;
+      setNeedsApproval(currentAllowance < ENTRY_COST);
+    }
+  }, [allowance]);
+
+  // Approve USDC spending for the game contract
+  const approveUSDC = useCallback(async () => {
+    if (!address) return;
+
+    setIsApproving(true);
+    try {
+      console.log(`Approving USDC spending for game contract...`);
+
+      writeContract({
+        address: USDC_CONTRACT_ADDRESS,
+        abi: USDC_ABI,
+        functionName: 'approve',
+        args: [GAME_CONTRACT_ADDRESS, ENTRY_COST],
+      });
+    } catch (error) {
+      console.error("Failed to approve USDC:", error);
+      setIsApproving(false);
+    }
+  }, [address, writeContract]);
+
   const enterGame = useCallback(async (choice: GameChoice) => {
     if (!currentRound || gameState !== "entry" || !address || !context?.user?.fid) return;
 
@@ -442,15 +542,16 @@ export function useRockPaperScissors() {
     setPaymentPendingChoice(choice);
 
     try {
-      console.log(`FID ${context.user.fid} entering game with choice ${choice} - single transaction payment...`);
-      console.log(`Sending $1.00 USDC to prize pool address`);
+      console.log(`FID ${context.user.fid} entering game with choice ${choice} - calling smart contract...`);
+      console.log(`Smart contract will charge $1.00 USDC, send 9% to owner, and 91% to prize pool`);
 
-      // Single transaction: Send full $1.00 USDC to the prize pool
+      // Call the smart contract enterGame function
+      // The contract will handle USDC transfer via transferFrom (user must have approved)
       writeContract({
-        address: USDC_CONTRACT_ADDRESS,
-        abi: USDC_ABI,
-        functionName: 'transfer',
-        args: [POT_ADDRESS, PRIZE_POOL_AMOUNT],
+        address: GAME_CONTRACT_ADDRESS,
+        abi: GAME_CONTRACT_ABI,
+        functionName: 'enterGame',
+        args: [choice, BigInt(currentRound.id)],
       });
     } catch (error) {
       console.error("Failed to initiate game entry:", error);
@@ -461,29 +562,45 @@ export function useRockPaperScissors() {
 
   // Handle transaction confirmations
   useEffect(() => {
-    if (isConfirmed && hash && paymentPendingChoice !== null && currentRound && context?.user?.fid) {
-      // Transaction confirmed
-      console.log(`✅ Payment confirmed: $1.00 USDC sent to prize pool at ${POT_ADDRESS}`);
-      console.log(`   Transaction hash: ${hash}`);
-      console.log(`🎉 FID ${context.user.fid} successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
-      console.log(`💰 Total payment: $1.00 USDC to prize pool (9% will go to owner upon settlement)`);
+    if (isConfirmed && hash) {
+      if (isApproving) {
+        // Approval transaction confirmed
+        console.log(`✅ USDC approval confirmed!`);
+        console.log(`   Transaction hash: ${hash}`);
+        setIsApproving(false);
+        // Refetch allowance to update the needsApproval state
+        refetchAllowance();
+      } else if (paymentPendingChoice !== null && currentRound && context?.user?.fid) {
+        // Entry transaction confirmed
+        console.log(`✅ Smart contract entry confirmed!`);
+        console.log(`   Transaction hash: ${hash}`);
+        console.log(`🎉 FID ${context.user.fid} successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
+        console.log(`💰 Contract automatically: charged $1.00 USDC, sent $0.09 to owner, $0.91 to prize pool`);
 
-      // Set player choice and add entry after transaction succeeds
-      setPlayerChoice(paymentPendingChoice);
-      addUserEntry(currentRound.id);
+        // Set player choice and add entry after transaction succeeds
+        setPlayerChoice(paymentPendingChoice);
+        addUserEntry(currentRound.id);
 
-      // Reset all states
-      setIsSubmitting(false);
-      setPaymentPendingChoice(null);
+        // Reset all states
+        setIsSubmitting(false);
+        setPaymentPendingChoice(null);
+        // Refetch allowance since USDC was spent
+        refetchAllowance();
+      }
     }
 
     if (writeError) {
       console.error("Transaction failed:", writeError);
-      console.log(`❌ Payment failed - user FID ${context?.user?.fid} is NOT entered in this round`);
-      setIsSubmitting(false);
-      setPaymentPendingChoice(null);
+      if (isApproving) {
+        console.log(`❌ USDC approval failed`);
+        setIsApproving(false);
+      } else {
+        console.log(`❌ Smart contract entry failed - user FID ${context?.user?.fid} is NOT entered in this round`);
+        setIsSubmitting(false);
+        setPaymentPendingChoice(null);
+      }
     }
-  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, context?.user?.fid]);
+  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, context?.user?.fid, isApproving, refetchAllowance]);
 
   // Legacy functions for backwards compatibility with existing UI
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
@@ -498,33 +615,28 @@ export function useRockPaperScissors() {
   }, []);
 
   const claimWinnings = useCallback(async (roundId: number) => {
-    if (!context?.user?.fid) return;
+    if (!context?.user?.fid || !address) return;
 
     const userFid = context.user.fid.toString();
 
     try {
-      // For demo purposes - in production this would call the actual smart contract
-      console.log(`FID ${userFid} claiming winnings for round ${roundId}`);
+      console.log(`FID ${userFid} claiming winnings for round ${roundId} via smart contract`);
 
-      // Mark this round as claimed for this user
-      const updatedClaimed = new Map(claimedWinnings);
-      const userClaimed = updatedClaimed.get(userFid) ?? new Set<number>();
-      userClaimed.add(roundId);
-      updatedClaimed.set(userFid, userClaimed);
-      setClaimedWinnings(updatedClaimed);
+      // Call the smart contract claimWinnings function
+      writeContract({
+        address: GAME_CONTRACT_ADDRESS,
+        abi: GAME_CONTRACT_ABI,
+        functionName: 'claimWinnings',
+        args: [BigInt(roundId)],
+      });
 
-      // Save to localStorage
-      const claimedData = Array.from(updatedClaimed.entries()).map(([fid, rounds]) => [
-        fid,
-        Array.from(rounds)
-      ]);
-      localStorage.setItem('farcasterGameClaimed', JSON.stringify(claimedData));
-
-      console.log(`✅ FID ${userFid} successfully claimed winnings for round ${roundId}`);
+      // Note: We'll mark as claimed after transaction confirms
+      // The smart contract will handle the actual USDC transfer
+      console.log(`📝 Claiming transaction submitted for FID ${userFid}, round ${roundId}`);
     } catch (error) {
       console.error("Failed to claim winnings:", error);
     }
-  }, [context?.user?.fid, claimedWinnings]);
+  }, [context?.user?.fid, address, writeContract]);
 
   const getChoiceName = (choice: GameChoice): string => {
     switch (choice) {
@@ -599,6 +711,7 @@ export function useRockPaperScissors() {
     // Actions
     enterGame,
     claimWinnings,
+    approveUSDC,
     onPaymentCompleted,
     onPaymentCanceled,
 
@@ -607,6 +720,8 @@ export function useRockPaperScissors() {
     isConfirming: isConfirming,
     paymentPendingChoice,
     isWritePending,
+    needsApproval,
+    isApproving,
 
     // Stats
     playerStats,
@@ -627,6 +742,6 @@ export function useRockPaperScissors() {
     // Constants
     ENTRY_COST,
     CREATOR_ADDRESS,
-    POT_ADDRESS
+    GAME_CONTRACT_ADDRESS
   };
 }

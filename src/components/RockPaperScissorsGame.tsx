@@ -34,10 +34,13 @@ export default function RockPaperScissorsGame() {
     playerChoice,
     enterGame,
     claimWinnings,
+    approveUSDC,
     isSubmitting,
     isConfirming,
     paymentPendingChoice,
     isWritePending,
+    needsApproval,
+    isApproving,
     playerStats,
     leaderboard,
     hasUserEnteredRound,
@@ -184,22 +187,35 @@ export default function RockPaperScissorsGame() {
                             <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
                             <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
                           </div>
-                          <Button
-                            onClick={() => handleChoiceSelect(choice)}
-                            disabled={isSubmitting || isConfirming || paymentPendingChoice !== null}
-                            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-2 rounded-lg shadow-lg text-xs"
-                          >
-                            {paymentPendingChoice === choice ? (
-                              isConfirming ? "Sending $1.00..." : "Processing..."
-                            ) : (
-                              "$1 USDC"
-                            )}
-                          </Button>
+                          {needsApproval ? (
+                            <Button
+                              onClick={approveUSDC}
+                              disabled={isApproving || isConfirming}
+                              className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-bold py-2 px-2 rounded-lg shadow-lg text-xs"
+                            >
+                              {isApproving ? "Approving..." : "Approve USDC"}
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => handleChoiceSelect(choice)}
+                              disabled={isSubmitting || isConfirming || paymentPendingChoice !== null}
+                              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-2 rounded-lg shadow-lg text-xs"
+                            >
+                              {paymentPendingChoice === choice ? (
+                                isConfirming ? "Entering Game..." : "Processing..."
+                              ) : (
+                                "$1 USDC"
+                              )}
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </div>
                     <p className="text-center text-xs text-muted-foreground">
-                      Entry costs {formatUSDC(ENTRY_COST)} USDC. Upon settlement: 9% to platform, 91% split among winners.
+                      {needsApproval
+                        ? "First approve USDC spending, then select your choice. Entry costs $1.00 USDC total."
+                        : `Entry costs ${formatUSDC(ENTRY_COST)} USDC. Smart contract automatically: 9% to platform, 91% to winners.`
+                      }
                     </p>
                   </div>
                 )}
@@ -557,11 +573,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>$1 USDC entry fee goes to prize pool, 9% platform fee deducted at settlement</span>
+            <span>$1 USDC entry fee: smart contract automatically sends 9% to platform, 91% to prize pool</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Single transaction: pay full $1.00 USDC entry fee</span>
+            <span>Two-step process: approve USDC spending, then enter game with choice</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
