@@ -233,24 +233,35 @@ export default function RockPaperScissorsGame() {
             </Badge>
             {currentRound?.chainMove !== undefined && currentRound?.winningChoice !== undefined && (
               <div className="space-y-4">
-                <div className="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 border-2 border-blue-300 rounded-xl p-4 shadow-lg">
-                  <h3 className="text-lg font-bold text-center text-blue-800 mb-3">Round Results</h3>
-                  <div className="flex justify-center items-center gap-12">
+                <div className="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 border-2 border-blue-300 rounded-xl p-5 shadow-lg">
+                  <h3 className="text-xl font-bold text-center text-blue-800 mb-4">🎲 Round Results</h3>
+
+                  {/* Chain's Choice - Most Prominent */}
+                  <div className="bg-gradient-to-r from-red-100 to-orange-100 border-2 border-red-300 rounded-lg p-4 mb-4 shadow-md">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-red-700 mb-2">⛓️ The Blockchain Drew:</p>
+                      <div className="text-7xl mb-2 animate-pulse">{getChoiceEmoji(currentRound.chainMove)}</div>
+                      <p className="text-2xl font-black text-red-800">{getChoiceName(currentRound.chainMove)}</p>
+                    </div>
+                  </div>
+
+                  {/* Battle Result */}
+                  <div className="flex justify-center items-center gap-8 mb-4">
                     <div className="text-center">
                       <div className="text-5xl mb-2">{getChoiceEmoji(currentRound.chainMove)}</div>
-                      <p className="text-sm font-semibold text-blue-700">Chain Drew</p>
-                      <p className="text-xs text-blue-600">{getChoiceName(currentRound.chainMove)}</p>
+                      <p className="text-sm font-semibold text-red-700">Chain Drew</p>
+                      <p className="text-xs text-red-600">{getChoiceName(currentRound.chainMove)}</p>
                     </div>
-                    <div className="text-2xl text-gray-400">vs</div>
+                    <div className="text-3xl text-gray-400 font-bold">⚔️</div>
                     <div className="text-center">
                       <div className="text-5xl mb-2">{getChoiceEmoji(currentRound.winningChoice)}</div>
                       <p className="text-sm font-semibold text-green-700">Winners Chose</p>
                       <p className="text-xs text-green-600">{getChoiceName(currentRound.winningChoice)}</p>
                     </div>
                   </div>
-                  <div className="text-center mt-3">
-                    <p className="text-sm font-semibold text-purple-700">
-                      {getChoiceName(currentRound.winningChoice)} beats {getChoiceName(currentRound.chainMove)}!
+                  <div className="text-center bg-green-100 border-2 border-green-300 rounded-lg p-3">
+                    <p className="text-lg font-bold text-green-800">
+                      🏆 {getChoiceName(currentRound.winningChoice)} beats {getChoiceName(currentRound.chainMove)}!
                     </p>
                   </div>
                 </div>

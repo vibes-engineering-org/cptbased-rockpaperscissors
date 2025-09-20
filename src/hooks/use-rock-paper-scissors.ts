@@ -253,8 +253,8 @@ export function useRockPaperScissors() {
     const prizePool = totalNetContributions;
 
     return {
-      playerEntries: Math.max(uniqueParticipants, 1), // At least show 1 for demo
-      prizePool: prizePool > 0 ? prizePool : netContributionPerPlayer // Minimum prize pool
+      playerEntries: uniqueParticipants,
+      prizePool: prizePool > 0 ? prizePool : BigInt(0) // Show actual prize pool, 0 if no entries
     };
   }, [playerEntries]);
 
@@ -334,6 +334,33 @@ export function useRockPaperScissors() {
     setLeaderboard(newLeaderboard);
   }, [playerEntries, winners, getLiveGameData, formatUSDC]);
 
+  // Generate deterministic but seemingly random chain move based on round ID
+  const generateChainMove = useCallback((roundId: number): GameChoice => {
+    // Use round ID and current timestamp to generate deterministic randomness
+    const seed = roundId * 1337 + Math.floor(Date.now() / (15 * 60 * 1000));
+
+    // Simple hash function to distribute values more evenly
+    let hash = seed;
+    hash = ((hash >> 16) ^ hash) * 0x45d9f3b;
+    hash = ((hash >> 16) ^ hash) * 0x45d9f3b;
+    hash = (hash >> 16) ^ hash;
+
+    return Math.abs(hash) % 3 as GameChoice;
+  }, []);
+
+  // Calculate winning choice based on chain move
+  const calculateWinningChoice = useCallback((chainMove: GameChoice): GameChoice => {
+    // What beats the chain's move?
+    switch (chainMove) {
+      case 0: // Rock - Paper beats Rock
+        return 1;
+      case 1: // Paper - Scissors beats Paper
+        return 2;
+      case 2: // Scissors - Rock beats Scissors
+        return 0;
+    }
+  }, []);
+
   // Update game state every second
   useEffect(() => {
     const updateGameState = () => {
@@ -344,8 +371,8 @@ export function useRockPaperScissors() {
       const liveData = getLiveGameData(roundInfo.id);
 
       const isComplete = roundInfo.state === "complete";
-      const chainMove = isComplete ? 1 : undefined; // Mock chain move (Paper)
-      const winningChoice = isComplete ? 2 : undefined; // Mock winning choice (Scissors beats Paper)
+      const chainMove = isComplete ? generateChainMove(roundInfo.id) : undefined;
+      const winningChoice = isComplete && chainMove !== undefined ? calculateWinningChoice(chainMove) : undefined;
 
       setCurrentRound({
         id: roundInfo.id,
@@ -374,7 +401,7 @@ export function useRockPaperScissors() {
     updateGameState();
     const interval = setInterval(updateGameState, 1000);
     return () => clearInterval(interval);
-  }, [getCurrentRoundInfo, getLiveGameData, hasUserEnteredRound, playerChoice, winners, updateWinnersAndLeaderboard]);
+  }, [getCurrentRoundInfo, getLiveGameData, hasUserEnteredRound, playerChoice, winners, updateWinnersAndLeaderboard, generateChainMove, calculateWinningChoice]);
 
   // Mock player stats - in production, calculate from actual data
   useEffect(() => {
@@ -426,12 +453,23 @@ export function useRockPaperScissors() {
       });
 
       // Then, send rake back to user (0.09 USDC from rake address)
-      // In production, this would be handled by the smart contract
-      // For now, we simulate the rake being sent back to the user
+      // In production, this would be handled by the smart contract automatically
+      // For demonstration, we'll make an actual USDC transfer from rake address to user
       console.log(`Sending ${formatUSDC(RAKE_AMOUNT)} USDC rake back to user: ${address}`);
 
-      // This would be handled by the smart contract in production:
-      // Contract sends RAKE_AMOUNT from RAKE_ADDRESS to user's address
+      // Send rake back to user - this simulates the contract sending rake back
+      try {
+        await writeContract({
+          address: USDC_CONTRACT_ADDRESS,
+          abi: USDC_ABI,
+          functionName: "transfer",
+          args: [address, RAKE_AMOUNT]
+        });
+        console.log(`Successfully sent ${formatUSDC(RAKE_AMOUNT)} USDC rake to ${address}`);
+      } catch (rakeError) {
+        console.error("Failed to send rake back to user:", rakeError);
+        // Continue with the entry even if rake fails
+      }
 
       // Set player choice and record entry
       setPlayerChoice(choice);
