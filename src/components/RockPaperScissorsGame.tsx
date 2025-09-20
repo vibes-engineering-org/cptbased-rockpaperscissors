@@ -473,11 +473,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>15-minute entry window, 1 USDC per entry (0.09 USDC platform fee)</span>
+            <span>15-minute entry window, 1 USDC per entry (includes 0.09 USDC platform fee)</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Net contribution to prize pool: 0.91 USDC per entry</span>
+            <span>Prize pool contribution: 0.91 USDC per entry (platform fee: 0.09 USDC)</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />

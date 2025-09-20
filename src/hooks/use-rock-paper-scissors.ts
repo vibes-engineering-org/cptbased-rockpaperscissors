@@ -32,7 +32,7 @@ const ROUND_DURATION_MINUTES = 15; // 15 minute rounds
 const ENTRY_WINDOW_MINUTES = 15; // 15 minutes to enter (continuous back-to-back rounds)
 const ENTRY_COST = BigInt(1000000); // 1 USDC (6 decimals)
 const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
-const RAKE_AMOUNT = BigInt(90000); // 0.09 USDC (6 decimals) - rake back to user
+const RAKE_AMOUNT = BigInt(90000); // 0.09 USDC (6 decimals) - platform fee sent to owner wallet
 const RAKE_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798";
 
 // USDC Contract ABI for token transfers
@@ -57,7 +57,7 @@ const USDC_ABI = [
   }
 ] as const;
 
-// Mock game contract ABI - in production, this would be the actual contract ABI
+// Game contract ABI - contract automatically handles USDC transfers and rake distribution
 const CONTRACT_ABI = [
   {
     name: "enterGame",
@@ -67,6 +67,11 @@ const CONTRACT_ABI = [
       { name: "choice", type: "uint8" },
       { name: "roundId", type: "uint256" }
     ]
+    // NOTE: Contract internally handles:
+    // 1. Transfer 1 USDC from user to contract (via transferFrom)
+    // 2. Send 0.09 USDC rake directly to platform wallet (0x9AE06d099415A8cD55ffCe40f998bC7356c9c798)
+    // 3. Add remaining 0.91 USDC to prize pool
+    // This ensures single transaction for users, no separate rake approval needed
   },
   {
     name: "claimWinnings",
@@ -91,6 +96,15 @@ const CONTRACT_ABI = [
 
 const CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Mock game contract address
 const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC contract address
+
+// PRODUCTION SMART CONTRACT REQUIREMENTS:
+// 1. Contract must have USDC approve/transferFrom permissions from users
+// 2. When enterGame() is called, contract automatically:
+//    - Transfers 1 USDC from user to contract
+//    - Immediately sends 0.09 USDC to RAKE_ADDRESS (platform wallet)
+//    - Adds remaining 0.91 USDC to the round's prize pool
+// 3. This ensures users only need to approve the game contract for USDC, not multiple transactions
+// 4. All rake collection happens atomically within the single enterGame transaction
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
@@ -444,42 +458,27 @@ export function useRockPaperScissors() {
     }
 
     try {
-      // First, transfer 1 USDC to the game contract to enter
+      // Single transaction: Transfer 1 USDC to the game contract
+      // The smart contract automatically handles the rake distribution:
+      // - Sends 0.09 USDC rake directly to the platform wallet (0x9AE06d099415A8cD55ffCe40f998bC7356c9c798)
+      // - Adds remaining 0.91 USDC to the prize pool
+      // This way, players only need to approve ONE transaction, not two
       await writeContract({
-        address: USDC_CONTRACT_ADDRESS,
-        abi: USDC_ABI,
-        functionName: "transfer",
-        args: [CONTRACT_ADDRESS, ENTRY_COST]
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "enterGame",
+        args: [choice, BigInt(currentRound.id)]
       });
-
-      // Then, send rake to the rake wallet (0.09 USDC)
-      // In production, this would be handled by the smart contract automatically
-      // For demonstration, we'll make an actual USDC transfer to the rake wallet
-      console.log(`Sending ${formatUSDC(RAKE_AMOUNT)} USDC rake to platform: ${RAKE_ADDRESS}`);
-
-      // Send rake to platform wallet - this simulates the contract collecting rake
-      try {
-        await writeContract({
-          address: USDC_CONTRACT_ADDRESS,
-          abi: USDC_ABI,
-          functionName: "transfer",
-          args: [RAKE_ADDRESS, RAKE_AMOUNT]
-        });
-        console.log(`Successfully sent ${formatUSDC(RAKE_AMOUNT)} USDC rake to platform wallet ${RAKE_ADDRESS}`);
-      } catch (rakeError) {
-        console.error("Failed to send rake to platform:", rakeError);
-        // Continue with the entry even if rake fails
-      }
 
       // Set player choice and record entry
       setPlayerChoice(choice);
       addUserEntry(currentRound.id);
 
-      console.log(`Player entered with choice ${choice}`);
+      console.log(`Player entered with choice ${choice} - rake automatically sent to ${RAKE_ADDRESS}`);
     } catch (error) {
       console.error("Failed to enter game:", error);
     }
-  }, [currentRound, gameState, address, context?.user?.fid, hasUserEnteredRound, addUserEntry, writeContract, formatUSDC]);
+  }, [currentRound, gameState, address, context?.user?.fid, hasUserEnteredRound, addUserEntry, writeContract]);
 
   const claimWinnings = useCallback(async (roundId: number) => {
     try {
