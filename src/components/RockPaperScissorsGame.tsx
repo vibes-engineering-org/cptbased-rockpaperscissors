@@ -37,10 +37,12 @@ export default function RockPaperScissorsGame() {
     isSubmitting,
     isConfirming,
     paymentPendingChoice,
+    paymentStep,
     isWritePending,
     playerStats,
     leaderboard,
     hasUserEnteredRound,
+    getUnclaimedWinnings,
     getChoiceName,
     getChoiceEmoji,
     formatTimeRemaining,
@@ -189,7 +191,11 @@ export default function RockPaperScissorsGame() {
                             className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-2 rounded-lg shadow-lg text-xs"
                           >
                             {paymentPendingChoice === choice ? (
-                              isConfirming ? "Entering..." : "Entry Pending"
+                              paymentStep === 'prize_pool' && isConfirming ? "Sending to Pool..." :
+                              paymentStep === 'platform_fee' && isConfirming ? "Sending Fee..." :
+                              paymentStep === 'prize_pool' ? "Pool Sent ✓" :
+                              paymentStep === 'platform_fee' ? "Sending Fee..." :
+                              isConfirming ? "Processing..." : "Entry Pending"
                             ) : (
                               "$1 USDC"
                             )}
@@ -444,6 +450,78 @@ export default function RockPaperScissorsGame() {
         </Card>
       )}
 
+      {/* Unclaimed Winnings */}
+      {context?.user && (() => {
+        const unclaimedWinnings = getUnclaimedWinnings();
+        return unclaimedWinnings.length > 0 ? (
+          <Card className="border-2 border-yellow-200 shadow-xl bg-gradient-to-br from-white via-yellow-50 to-amber-50">
+            <CardHeader className="pb-3 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-t-lg border-b-2 border-yellow-200">
+              <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <Trophy className="w-6 h-6 text-yellow-600" />
+                <span className="bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">Unclaimed Winnings</span>
+                <Badge variant="secondary" className="bg-yellow-500 text-yellow-50 ml-auto">
+                  {unclaimedWinnings.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="text-center mb-4">
+                  <p className="text-lg font-bold text-yellow-700 mb-1">
+                    Total Unclaimed: {formatUSDC(
+                      unclaimedWinnings.reduce((total, win) => total + win.prizeAmount, BigInt(0))
+                    )} USDC
+                  </p>
+                  <p className="text-sm text-yellow-600">Claim your winnings from completed rounds!</p>
+                </div>
+
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {unclaimedWinnings.map((winning) => (
+                    <div key={winning.roundId} className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-lg border border-yellow-300">
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-center">
+                          <span className="text-2xl">{getChoiceEmoji(winning.winningChoice)}</span>
+                          <span className="text-xs text-yellow-600 font-medium">
+                            Round #{winning.roundId}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-yellow-800">
+                            {formatUSDC(winning.prizeAmount)} USDC
+                          </p>
+                          <p className="text-sm text-yellow-600">
+                            Won with {getChoiceName(winning.winningChoice)}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => claimWinnings(winning.roundId)}
+                        size="sm"
+                        className="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white font-bold shadow-lg"
+                      >
+                        Claim
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={() => {
+                    unclaimedWinnings.forEach(winning => claimWinnings(winning.roundId));
+                  }}
+                  className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white font-bold py-3 shadow-lg"
+                  disabled={unclaimedWinnings.length === 0}
+                >
+                  Claim All Winnings ({formatUSDC(
+                    unclaimedWinnings.reduce((total, win) => total + win.prizeAmount, BigInt(0))
+                  )} USDC)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null;
+      })()}
+
       {/* Leaderboard */}
       <Card className="border-2 border-yellow-200 shadow-xl bg-gradient-to-br from-white via-yellow-50 to-orange-50">
         <CardHeader className="pb-3 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-t-lg border-b-2 border-yellow-200">
@@ -484,11 +562,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>One-click $1 USDC payment enters you instantly - no pre-authorization</span>
+            <span>Two-step $1 USDC payment: $0.91 to prize pool + $0.09 platform fee</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Automatic split: $0.91 to prize pool, $0.09 platform fee</span>
+            <span>Transparent split: you see both transactions in your wallet</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />

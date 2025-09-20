@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { base } from "wagmi/chains";
 import { parseEther, formatEther } from "viem";
 import { useMiniAppSdk } from "./use-miniapp-sdk";
@@ -52,18 +52,18 @@ const USDC_ABI = [
 
 const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC contract address
 
-// SINGLE TRANSACTION ENTRY SYSTEM:
-// Players make one USDC transfer of $1.00 to the pot address
-// The pot address contract automatically splits the payment:
-// - $0.91 USDC stays in the prize pool
-// - $0.09 USDC is automatically forwarded to the creator address
-// Entry is confirmed when the single payment is successful
+// DUAL TRANSACTION ENTRY SYSTEM:
+// Players make two USDC transfers totaling $1.00 USDC:
+// 1. First transaction: $0.91 USDC to the prize pool address
+// 2. Second transaction: $0.09 USDC to the creator address (platform fee)
+// Entry is confirmed when both payments are successful
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
   const { context } = useMiniAppSdk();
   const { writeContract, data: hash, isPending: isWritePending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+  const publicClient = usePublicClient();
   const [currentRound, setCurrentRound] = useState<GameRound | null>(null);
   const [playerChoice, setPlayerChoice] = useState<GameChoice | null>(null);
   const [gameState, setGameState] = useState<GameState>("waiting");
@@ -85,6 +85,8 @@ export function useRockPaperScissors() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPendingChoice, setPaymentPendingChoice] = useState<GameChoice | null>(null);
+  const [paymentStep, setPaymentStep] = useState<'prize_pool' | 'platform_fee' | 'complete' | null>(null);
+  const [prizePoolTxHash, setPrizePoolTxHash] = useState<string | null>(null);
 
   // Check if current Farcaster user has already entered this round
   const hasUserEnteredRound = useCallback((roundId: number): boolean => {
@@ -368,6 +370,8 @@ export function useRockPaperScissors() {
       if (paymentPendingChoice !== null && currentRound && currentRound.id !== roundInfo.id) {
         setPaymentPendingChoice(null);
         setIsSubmitting(false);
+        setPaymentStep(null);
+        setPrizePoolTxHash(null);
         console.log("Round changed - clearing pending payment state");
       }
     };
@@ -424,48 +428,72 @@ export function useRockPaperScissors() {
 
     setIsSubmitting(true);
     setPaymentPendingChoice(choice);
+    setPaymentStep('prize_pool');
 
     try {
-      console.log(`Entering game with choice ${choice} - single $1 USDC payment with automatic split...`);
-      console.log(`Payment: $1.00 USDC to pot contract which automatically forwards $0.09 USDC to creator`);
+      console.log(`Entering game with choice ${choice} - dual transaction payment...`);
+      console.log(`Step 1: Sending $0.91 USDC to prize pool address`);
 
-      // Single transfer: $1.00 USDC to pot address (which handles the automatic split)
+      // First transaction: Send $0.91 USDC to the prize pool
       writeContract({
         address: USDC_CONTRACT_ADDRESS,
         abi: USDC_ABI,
         functionName: 'transfer',
-        args: [POT_ADDRESS, ENTRY_COST],
+        args: [POT_ADDRESS, POT_AMOUNT],
       });
     } catch (error) {
       console.error("Failed to initiate game entry:", error);
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
+      setPaymentStep(null);
     }
   }, [currentRound, gameState, address, hasUserEnteredRound, paymentPendingChoice, writeContract]);
 
   // Handle transaction confirmations
   useEffect(() => {
-    if (isConfirmed && hash && paymentPendingChoice !== null && currentRound) {
-      // Single transaction confirmed
-      console.log(`✅ Payment confirmed: $1.00 USDC to pot contract at ${POT_ADDRESS}`);
-      console.log(`🎉 Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
-      console.log(`💰 Pot contract automatically forwards $0.09 USDC to creator and keeps $0.91 USDC in prize pool`);
+    if (isConfirmed && hash && paymentPendingChoice !== null && currentRound && paymentStep) {
+      if (paymentStep === 'prize_pool') {
+        // First transaction confirmed - now send platform fee
+        console.log(`✅ Step 1 confirmed: $0.91 USDC sent to prize pool at ${POT_ADDRESS}`);
+        console.log(`Step 2: Sending $0.09 USDC platform fee to creator address`);
 
-      setPlayerChoice(paymentPendingChoice);
-      addUserEntry(currentRound.id);
+        setPrizePoolTxHash(hash);
+        setPaymentStep('platform_fee');
 
-      // Reset all states
-      setIsSubmitting(false);
-      setPaymentPendingChoice(null);
+        // Second transaction: Send $0.09 USDC to the creator
+        writeContract({
+          address: USDC_CONTRACT_ADDRESS,
+          abi: USDC_ABI,
+          functionName: 'transfer',
+          args: [CREATOR_ADDRESS, RAKE_AMOUNT],
+        });
+      } else if (paymentStep === 'platform_fee') {
+        // Both transactions confirmed
+        console.log(`✅ Step 2 confirmed: $0.09 USDC platform fee sent to creator at ${CREATOR_ADDRESS}`);
+        console.log(`🎉 Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
+        console.log(`💰 Total payment: $1.00 USDC ($0.91 to prize pool + $0.09 platform fee)`);
+
+        setPlayerChoice(paymentPendingChoice);
+        addUserEntry(currentRound.id);
+        setPaymentStep('complete');
+
+        // Reset all states
+        setIsSubmitting(false);
+        setPaymentPendingChoice(null);
+        setPaymentStep(null);
+        setPrizePoolTxHash(null);
+      }
     }
 
     if (writeError) {
       console.error("Transaction failed:", writeError);
-      console.log("❌ Payment failed - user is NOT entered in this round");
+      console.log(`❌ Payment step '${paymentStep}' failed - user is NOT entered in this round`);
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
+      setPaymentStep(null);
+      setPrizePoolTxHash(null);
     }
-  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, writeContract]);
+  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, writeContract, paymentStep]);
 
   // Legacy functions for backwards compatibility with existing UI
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
@@ -476,6 +504,8 @@ export function useRockPaperScissors() {
   const onPaymentCanceled = useCallback(() => {
     setIsSubmitting(false);
     setPaymentPendingChoice(null);
+    setPaymentStep(null);
+    setPrizePoolTxHash(null);
     console.log("❌ Payment was canceled or failed - user is NOT entered in this round");
   }, []);
 
@@ -519,6 +549,37 @@ export function useRockPaperScissors() {
     }
   };
 
+  // Get unclaimed winnings for the current user
+  const getUnclaimedWinnings = useCallback(() => {
+    if (!context?.user?.fid) return [];
+
+    const userFid = context.user.fid.toString();
+    const unclaimed: Array<{
+      roundId: number;
+      prizeAmount: bigint;
+      winningChoice: GameChoice;
+    }> = [];
+
+    winners.forEach((roundWinners, roundId) => {
+      if (roundWinners.includes(userFid)) {
+        const liveData = getLiveGameData(roundId);
+        const prizePerWinner = liveData.prizePool / BigInt(roundWinners.length || 1);
+
+        // For demo purposes, assume all winnings are unclaimed
+        // In production, this would check the blockchain for claimed status
+        const winningChoice = calculateWinningChoice(generateChainMove(roundId));
+
+        unclaimed.push({
+          roundId,
+          prizeAmount: prizePerWinner,
+          winningChoice
+        });
+      }
+    });
+
+    return unclaimed.sort((a, b) => b.roundId - a.roundId); // Most recent first
+  }, [context?.user?.fid, winners, getLiveGameData, calculateWinningChoice, generateChainMove]);
+
   return {
     // Game state
     currentRound,
@@ -536,6 +597,7 @@ export function useRockPaperScissors() {
     isSubmitting,
     isConfirming: isConfirming,
     paymentPendingChoice,
+    paymentStep,
     isWritePending,
 
     // Stats
@@ -544,6 +606,9 @@ export function useRockPaperScissors() {
 
     // Entry restrictions
     hasUserEnteredRound,
+
+    // Winnings
+    getUnclaimedWinnings,
 
     // Utilities
     getChoiceName,
