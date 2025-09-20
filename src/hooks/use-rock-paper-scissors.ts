@@ -32,8 +32,8 @@ const ROUND_DURATION_MINUTES = 15; // 15 minute rounds
 const ENTRY_WINDOW_MINUTES = 15; // 15 minutes to enter (continuous back-to-back rounds)
 const ENTRY_COST = BigInt(1000000); // 1 USDC (6 decimals)
 const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
-const RAKE_AMOUNT = BigInt(90000); // 0.09 USDC (6 decimals) - platform fee sent to owner wallet
-const POT_AMOUNT = BigInt(910000); // 0.91 USDC (6 decimals) - amount that goes to the pot
+const PLATFORM_FEE_AMOUNT = BigInt(90000); // 0.09 USDC (6 decimals) - 9% platform fee sent to owner wallet
+const PRIZE_POOL_AMOUNT = BigInt(1000000); // 1.00 USDC (6 decimals) - full entry goes to prize pool initially
 const CREATOR_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"; // Creator wallet for 9% fee
 const POT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Prize pool address (different from creator)
 
@@ -52,11 +52,10 @@ const USDC_ABI = [
 
 const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC contract address
 
-// DUAL TRANSACTION ENTRY SYSTEM:
-// Players make two USDC transfers totaling $1.00 USDC:
-// 1. First transaction: $0.91 USDC to the prize pool address
-// 2. Second transaction: $0.09 USDC to the creator address (platform fee)
-// Entry is confirmed when both payments are successful
+// SINGLE TRANSACTION ENTRY SYSTEM:
+// Players make one USDC transfer of $1.00 USDC to the prize pool address
+// Upon settlement, 9% of the total prize pool goes to owner, 91% split among winners
+// Entry is confirmed when the payment is successful
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
@@ -86,8 +85,6 @@ export function useRockPaperScissors() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPendingChoice, setPaymentPendingChoice] = useState<GameChoice | null>(null);
-  const [paymentStep, setPaymentStep] = useState<'prize_pool' | 'platform_fee' | 'complete' | null>(null);
-  const [prizePoolTxHash, setPrizePoolTxHash] = useState<string | null>(null);
 
   // Check if current Farcaster user has already entered this round
   const hasUserEnteredRound = useCallback((roundId: number): boolean => {
@@ -226,20 +223,18 @@ export function useRockPaperScissors() {
       0
     );
 
-    // Calculate total pot based on entries (1 USDC per entry)
-    const totalEntries = BigInt(uniqueParticipants) * ENTRY_COST;
+    // Calculate total prize pool: each player pays 1 USDC, all goes to prize pool initially
+    const totalPrizePool = BigInt(uniqueParticipants) * ENTRY_COST;
 
-    // Calculate rake amounts:
-    // Each player pays 1 USDC, 0.09 USDC goes to rake wallet, so net contribution is 0.91 USDC
-    const netContributionPerPlayer = ENTRY_COST - RAKE_AMOUNT; // 0.91 USDC
-    const totalNetContributions = BigInt(uniqueParticipants) * netContributionPerPlayer;
-
-    // The prize pool is the total net contributions (after rake to platform)
-    const prizePool = totalNetContributions;
+    // For settlement: 9% goes to owner, 91% split among winners
+    const ownerFee = (totalPrizePool * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100);
+    const winnersShare = totalPrizePool - ownerFee;
 
     return {
       playerEntries: uniqueParticipants,
-      prizePool: prizePool > 0 ? prizePool : BigInt(0) // Show actual prize pool, 0 if no entries
+      prizePool: totalPrizePool, // Show full prize pool amount
+      ownerFee,
+      winnersShare
     };
   }, [playerEntries]);
 
@@ -295,7 +290,9 @@ export function useRockPaperScissors() {
     // Count wins and calculate winnings for each player
     updatedWinners.forEach((roundWinners, completedRoundId) => {
       const liveData = getLiveGameData(completedRoundId);
-      const winningsPerPlayer = liveData.prizePool / BigInt(roundWinners.length || 1);
+      // Winners get 91% of the total prize pool, split evenly
+      const winnersShare = liveData.winnersShare;
+      const winningsPerPlayer = winnersShare / BigInt(roundWinners.length || 1);
 
       roundWinners.forEach(fid => {
         const current = winnerStats.get(fid) || { wins: 0, totalWinnings: BigInt(0) };
@@ -386,8 +383,6 @@ export function useRockPaperScissors() {
       if (paymentPendingChoice !== null && currentRound && currentRound.id !== roundInfo.id) {
         setPaymentPendingChoice(null);
         setIsSubmitting(false);
-        setPaymentStep(null);
-        setPrizePoolTxHash(null);
         console.log("Round changed - clearing pending payment state");
       }
     };
@@ -410,7 +405,8 @@ export function useRockPaperScissors() {
         if (roundWinners.includes(userFid)) {
           wins += 1;
           const liveData = getLiveGameData(roundId);
-          totalWinnings += liveData.prizePool / BigInt(roundWinners.length);
+          // Winners get 91% of the prize pool, split evenly
+          totalWinnings += liveData.winnersShare / BigInt(roundWinners.length);
         }
       });
 
@@ -444,75 +440,50 @@ export function useRockPaperScissors() {
 
     setIsSubmitting(true);
     setPaymentPendingChoice(choice);
-    setPaymentStep('prize_pool');
 
     try {
-      console.log(`FID ${context.user.fid} entering game with choice ${choice} - dual transaction payment...`);
-      console.log(`Step 1: Sending $0.91 USDC to prize pool address`);
+      console.log(`FID ${context.user.fid} entering game with choice ${choice} - single transaction payment...`);
+      console.log(`Sending $1.00 USDC to prize pool address`);
 
-      // First transaction: Send $0.91 USDC to the prize pool
+      // Single transaction: Send full $1.00 USDC to the prize pool
       writeContract({
         address: USDC_CONTRACT_ADDRESS,
         abi: USDC_ABI,
         functionName: 'transfer',
-        args: [POT_ADDRESS, POT_AMOUNT],
+        args: [POT_ADDRESS, PRIZE_POOL_AMOUNT],
       });
     } catch (error) {
       console.error("Failed to initiate game entry:", error);
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
-      setPaymentStep(null);
     }
   }, [currentRound, gameState, address, hasUserEnteredRound, paymentPendingChoice, writeContract, context?.user?.fid]);
 
   // Handle transaction confirmations
   useEffect(() => {
-    if (isConfirmed && hash && paymentPendingChoice !== null && currentRound && paymentStep && context?.user?.fid) {
-      if (paymentStep === 'prize_pool') {
-        // First transaction confirmed - now send platform fee
-        console.log(`✅ Step 1 confirmed: $0.91 USDC sent to prize pool at ${POT_ADDRESS}`);
-        console.log(`   Transaction hash: ${hash}`);
-        console.log(`Step 2: Sending $0.09 USDC platform fee to creator address`);
+    if (isConfirmed && hash && paymentPendingChoice !== null && currentRound && context?.user?.fid) {
+      // Transaction confirmed
+      console.log(`✅ Payment confirmed: $1.00 USDC sent to prize pool at ${POT_ADDRESS}`);
+      console.log(`   Transaction hash: ${hash}`);
+      console.log(`🎉 FID ${context.user.fid} successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
+      console.log(`💰 Total payment: $1.00 USDC to prize pool (9% will go to owner upon settlement)`);
 
-        setPrizePoolTxHash(hash);
-        setPaymentStep('platform_fee');
+      // Set player choice and add entry after transaction succeeds
+      setPlayerChoice(paymentPendingChoice);
+      addUserEntry(currentRound.id);
 
-        // Second transaction: Send $0.09 USDC to the creator
-        writeContract({
-          address: USDC_CONTRACT_ADDRESS,
-          abi: USDC_ABI,
-          functionName: 'transfer',
-          args: [CREATOR_ADDRESS, RAKE_AMOUNT],
-        });
-      } else if (paymentStep === 'platform_fee') {
-        // Both transactions confirmed
-        console.log(`✅ Step 2 confirmed: $0.09 USDC platform fee sent to creator at ${CREATOR_ADDRESS}`);
-        console.log(`   Transaction hash: ${hash}`);
-        console.log(`🎉 FID ${context.user.fid} successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
-        console.log(`💰 Total payment: $1.00 USDC ($0.91 to prize pool + $0.09 platform fee)`);
-
-        // Only set player choice and add entry after BOTH transactions succeed
-        setPlayerChoice(paymentPendingChoice);
-        addUserEntry(currentRound.id);
-        setPaymentStep('complete');
-
-        // Reset all states
-        setIsSubmitting(false);
-        setPaymentPendingChoice(null);
-        setPaymentStep(null);
-        setPrizePoolTxHash(null);
-      }
+      // Reset all states
+      setIsSubmitting(false);
+      setPaymentPendingChoice(null);
     }
 
     if (writeError) {
       console.error("Transaction failed:", writeError);
-      console.log(`❌ Payment step '${paymentStep}' failed - user FID ${context?.user?.fid} is NOT entered in this round`);
+      console.log(`❌ Payment failed - user FID ${context?.user?.fid} is NOT entered in this round`);
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
-      setPaymentStep(null);
-      setPrizePoolTxHash(null);
     }
-  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, writeContract, paymentStep, context?.user?.fid]);
+  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, context?.user?.fid]);
 
   // Legacy functions for backwards compatibility with existing UI
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
@@ -523,8 +494,6 @@ export function useRockPaperScissors() {
   const onPaymentCanceled = useCallback(() => {
     setIsSubmitting(false);
     setPaymentPendingChoice(null);
-    setPaymentStep(null);
-    setPrizePoolTxHash(null);
     console.log("❌ Payment was canceled or failed - user is NOT entered in this round");
   }, []);
 
@@ -603,7 +572,8 @@ export function useRockPaperScissors() {
     winners.forEach((roundWinners, roundId) => {
       if (roundWinners.includes(userFid) && !userClaimedRounds.has(roundId)) {
         const liveData = getLiveGameData(roundId);
-        const prizePerWinner = liveData.prizePool / BigInt(roundWinners.length || 1);
+        // Winners get 91% of the prize pool, split evenly
+        const prizePerWinner = liveData.winnersShare / BigInt(roundWinners.length || 1);
 
         // Only include unclaimed winnings
         const winningChoice = calculateWinningChoice(generateChainMove(roundId));
@@ -636,7 +606,6 @@ export function useRockPaperScissors() {
     isSubmitting,
     isConfirming: isConfirming,
     paymentPendingChoice,
-    paymentStep,
     isWritePending,
 
     // Stats

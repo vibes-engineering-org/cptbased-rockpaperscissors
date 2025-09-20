@@ -37,7 +37,6 @@ export default function RockPaperScissorsGame() {
     isSubmitting,
     isConfirming,
     paymentPendingChoice,
-    paymentStep,
     isWritePending,
     playerStats,
     leaderboard,
@@ -191,11 +190,7 @@ export default function RockPaperScissorsGame() {
                             className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-2 rounded-lg shadow-lg text-xs"
                           >
                             {paymentPendingChoice === choice ? (
-                              paymentStep === 'prize_pool' && isConfirming ? "Sending $0.91..." :
-                              paymentStep === 'platform_fee' && isConfirming ? "Sending $0.09..." :
-                              paymentStep === 'prize_pool' ? "Pool Sent ✓" :
-                              paymentStep === 'platform_fee' ? "Sending Fee..." :
-                              isConfirming ? "Processing..." : "Entry Pending"
+                              isConfirming ? "Sending $1.00..." : "Processing..."
                             ) : (
                               "$1 USDC"
                             )}
@@ -204,7 +199,7 @@ export default function RockPaperScissorsGame() {
                       ))}
                     </div>
                     <p className="text-center text-xs text-muted-foreground">
-                      Entry costs {formatUSDC(ENTRY_COST)} USDC total: $0.91 to prize pool + $0.09 platform fee. Two transactions required.
+                      Entry costs {formatUSDC(ENTRY_COST)} USDC. Upon settlement: 9% to platform, 91% split among winners.
                     </p>
                   </div>
                 )}
@@ -562,11 +557,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>$1 USDC entry fee: $0.91 goes to prize pool, $0.09 platform fee</span>
+            <span>$1 USDC entry fee goes to prize pool, 9% platform fee deducted at settlement</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Two separate transactions: complete transparency for all payments</span>
+            <span>Single transaction: pay full $1.00 USDC entry fee</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
