@@ -21,36 +21,11 @@ export default async function Image() {
           flexDirection: "column",
           width: "100%",
           height: "100%",
-          backgroundColor: "#1a1a1a",
+          backgroundColor: "#000000",
           position: "relative",
           overflow: "hidden",
         }}
       >
-        {/* Background gradient with app-matching colors */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "linear-gradient(135deg, #0ea5e9 0%, #6366f1 25%, #8b5cf6 50%, #d946ef 75%, #ec4899 100%)",
-            opacity: 0.95,
-          }}
-        />
-
-        {/* Subtle pattern overlay with game elements */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage:
-              "radial-gradient(circle at 20% 80%, rgba(255, 107, 107, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(78, 205, 196, 0.4) 0%, transparent 50%)",
-          }}
-        />
 
         {/* Main content container - centered in safe zone */}
         <div
@@ -260,19 +235,6 @@ export default async function Image() {
             </span>
           </div>
         </div>
-
-        {/* Bottom gradient fade for depth */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "200px",
-            background:
-              "linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, transparent 100%)",
-          }}
-        />
       </div>
     ),
     {

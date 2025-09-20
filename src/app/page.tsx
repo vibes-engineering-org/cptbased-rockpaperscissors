@@ -21,7 +21,7 @@ const frame = {
       name: PROJECT_TITLE,
       url: appUrl,
       splashImageUrl: `${appUrl}/splash.png`,
-      splashBackgroundColor: "#0ea5e9",
+      splashBackgroundColor: "#000000",
     },
   },
 };
