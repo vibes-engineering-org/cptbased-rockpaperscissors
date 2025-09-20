@@ -191,7 +191,7 @@ export default function RockPaperScissorsGame() {
                             {paymentPendingChoice === choice ? (
                               isConfirming ? "Entering..." : "Entry Pending"
                             ) : (
-                              "Enter $1 USDC"
+                              "$1 USDC"
                             )}
                           </Button>
                         </div>

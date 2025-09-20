@@ -35,7 +35,7 @@ const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
 const RAKE_AMOUNT = BigInt(90000); // 0.09 USDC (6 decimals) - platform fee sent to owner wallet
 const POT_AMOUNT = BigInt(910000); // 0.91 USDC (6 decimals) - amount that goes to the pot
 const CREATOR_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"; // Creator wallet for 9% fee
-const POT_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"; // Temporary pot address - should be a smart contract in production
+const POT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Prize pool address (different from creator)
 
 // USDC Contract ABI for direct transfers
 const USDC_ABI = [
