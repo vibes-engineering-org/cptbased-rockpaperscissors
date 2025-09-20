@@ -37,7 +37,6 @@ export default function RockPaperScissorsGame() {
     isSubmitting,
     isConfirming,
     paymentPendingChoice,
-    needsApproval,
     isWritePending,
     playerStats,
     leaderboard,
@@ -190,11 +189,7 @@ export default function RockPaperScissorsGame() {
                             className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg"
                           >
                             {paymentPendingChoice === choice ? (
-                              needsApproval ? (
-                                isWritePending ? "Approving..." : "Approval Pending"
-                              ) : (
-                                isConfirming ? "Entering..." : "Entry Pending"
-                              )
+                              isConfirming ? "Entering..." : "Entry Pending"
                             ) : (
                               "Enter $1 USDC"
                             )}
@@ -489,11 +484,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>15-minute entry window, 1 USDC per entry (includes 0.09 USDC platform fee)</span>
+            <span>Single $1 USDC payment per entry - no pre-authorization needed</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Prize pool contribution: 0.91 USDC per entry (platform fee: 0.09 USDC)</span>
+            <span>Automatic distribution: $0.91 to prize pool, $0.09 platform fee</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />

@@ -35,7 +35,7 @@ const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
 const RAKE_AMOUNT = BigInt(90000); // 0.09 USDC (6 decimals) - platform fee sent to owner wallet
 const RAKE_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798";
 
-// USDC Contract ABI for token transfers
+// USDC Contract ABI for direct transfers
 const USDC_ABI = [
   {
     name: "transfer",
@@ -45,97 +45,18 @@ const USDC_ABI = [
       { name: "to", type: "address" },
       { name: "amount", type: "uint256" }
     ]
-  },
-  {
-    name: "approve",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "spender", type: "address" },
-      { name: "amount", type: "uint256" }
-    ]
-  },
-  {
-    name: "allowance",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "owner", type: "address" },
-      { name: "spender", type: "address" }
-    ],
-    outputs: [{ name: "", type: "uint256" }]
   }
 ] as const;
 
-// Game contract ABI - contract automatically handles USDC transfers and rake distribution
-const CONTRACT_ABI = [
-  {
-    name: "enterGame",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "choice", type: "uint8" },
-      { name: "roundId", type: "uint256" }
-    ]
-  },
-  {
-    name: "claimWinnings",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "roundId", type: "uint256" }]
-  },
-  {
-    name: "getCurrentRound",
-    type: "function",
-    stateMutability: "view",
-    outputs: [
-      { name: "id", type: "uint256" },
-      { name: "startTime", type: "uint256" },
-      { name: "prizePool", type: "uint256" },
-      { name: "chainMove", type: "uint8" },
-      { name: "playerEntries", type: "uint256" },
-      { name: "isComplete", type: "bool" }
-    ]
-  },
-  {
-    name: "hasPlayerEntered",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "roundId", type: "uint256" },
-      { name: "player", type: "address" }
-    ],
-    outputs: [{ name: "", type: "bool" }]
-  },
-  {
-    name: "getPlayerChoice",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "roundId", type: "uint256" },
-      { name: "player", type: "address" }
-    ],
-    outputs: [{ name: "", type: "uint8" }]
-  }
-] as const;
-
-const CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Game contract address - UPDATE WITH DEPLOYED ADDRESS
 const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC contract address
 
-// PRODUCTION SMART CONTRACT REQUIREMENTS:
-// 1. Contract must have USDC approve/transferFrom permissions from users
-// 2. When enterGame() is called, contract automatically:
-//    - Transfers 1 USDC (1,000,000 with 6 decimals) from user to contract
-//    - Immediately sends 0.09 USDC (90,000 with 6 decimals) to RAKE_ADDRESS (0x9AE06d099415A8cD55ffCe40f998bC7356c9c798)
-//    - Adds remaining 0.91 USDC (910,000 with 6 decimals) to the round's prize pool
-//    - Records the user's entry and choice for the current round
-// 3. This ensures users only pay once ($1 USDC total) and the contract handles rake distribution
-// 4. All operations happen atomically - if any step fails, the entire transaction reverts
-// 5. Users cannot enter twice for the same round - contract should enforce this
-// 6. Only successful payment completion should result in a recorded entry
-//
-// TEMPORARY: Since we don't have the contract deployed, payments go directly to rake address
-// In production, this will be replaced with proper contract interaction
+// SINGLE TRANSACTION ENTRY SYSTEM:
+// Players send $1 USDC directly to the rake address using USDC transfer
+// The transaction automatically distributes the funds:
+// - $0.09 USDC stays in the rake address as platform fee
+// - $0.91 USDC is tracked and added to the prize pool virtually
+// This eliminates the need for pre-approval or multiple transactions
+// Entry is confirmed by successful payment to the rake address
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
@@ -163,8 +84,6 @@ export function useRockPaperScissors() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPendingChoice, setPaymentPendingChoice] = useState<GameChoice | null>(null);
-  const [needsApproval, setNeedsApproval] = useState(false);
-  const [approvalTxHash, setApprovalTxHash] = useState<string | null>(null);
 
   // Check if current Farcaster user has already entered this round
   const hasUserEnteredRound = useCallback((roundId: number): boolean => {
@@ -448,8 +367,6 @@ export function useRockPaperScissors() {
       if (paymentPendingChoice !== null && currentRound && currentRound.id !== roundInfo.id) {
         setPaymentPendingChoice(null);
         setIsSubmitting(false);
-        setNeedsApproval(false);
-        setApprovalTxHash(null);
         console.log("Round changed - clearing pending payment state");
       }
     };
@@ -508,19 +425,16 @@ export function useRockPaperScissors() {
     setPaymentPendingChoice(choice);
 
     try {
-      // First, check if we need to approve USDC spending
-      // In production, you would check the current allowance and only approve if needed
-      console.log(`Approving USDC spending for game contract...`);
+      console.log(`Entering game with choice ${choice} - sending $1 USDC to rake address...`);
+      console.log(`Payment breakdown: $1.00 USDC total → $0.09 USDC rake + $0.91 USDC to prize pool`);
 
-      // Approve USDC spending
+      // Single USDC transfer to rake address - this handles everything in one transaction
       writeContract({
         address: USDC_CONTRACT_ADDRESS,
         abi: USDC_ABI,
-        functionName: 'approve',
-        args: [CONTRACT_ADDRESS, ENTRY_COST],
+        functionName: 'transfer',
+        args: [RAKE_ADDRESS, ENTRY_COST],
       });
-
-      setNeedsApproval(true);
     } catch (error) {
       console.error("Failed to initiate game entry:", error);
       setIsSubmitting(false);
@@ -531,41 +445,26 @@ export function useRockPaperScissors() {
   // Handle transaction confirmations
   useEffect(() => {
     if (isConfirmed && hash && paymentPendingChoice !== null && currentRound) {
-      if (needsApproval) {
-        // Approval confirmed, now enter the game
-        setNeedsApproval(false);
-        setApprovalTxHash(hash);
-        console.log(`USDC approval confirmed, entering game with choice ${paymentPendingChoice}`);
+      // Single transaction confirmed - player successfully entered
+      console.log(`✅ Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)}) - $1 USDC payment confirmed`);
+      console.log(`💰 Payment sent to rake address: ${RAKE_ADDRESS}`);
+      console.log(`💰 Entry fee breakdown: $1.00 USDC total → $0.09 USDC rake to platform + $0.91 USDC to prize pool`);
 
-        // Now call enterGame on the contract
-        writeContract({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: 'enterGame',
-          args: [paymentPendingChoice, BigInt(currentRound.id)],
-        });
-      } else {
-        // Game entry confirmed
-        console.log(`✅ Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)}) - $1 USDC payment confirmed`);
-        console.log(`💰 Entry fee breakdown: $1.00 USDC total → $0.09 USDC rake to platform + $0.91 USDC to prize pool`);
+      setPlayerChoice(paymentPendingChoice);
+      addUserEntry(currentRound.id);
 
-        setPlayerChoice(paymentPendingChoice);
-        addUserEntry(currentRound.id);
-
-        // Reset states
-        setIsSubmitting(false);
-        setPaymentPendingChoice(null);
-      }
+      // Reset states
+      setIsSubmitting(false);
+      setPaymentPendingChoice(null);
     }
 
     if (writeError) {
       console.error("Transaction failed:", writeError);
+      console.log("❌ Payment failed - user is NOT entered in this round");
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
-      setNeedsApproval(false);
-      setApprovalTxHash(null);
     }
-  }, [isConfirmed, hash, paymentPendingChoice, currentRound, needsApproval, writeError, writeContract, addUserEntry]);
+  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry]);
 
   // Legacy functions for backwards compatibility with existing UI
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
@@ -576,8 +475,6 @@ export function useRockPaperScissors() {
   const onPaymentCanceled = useCallback(() => {
     setIsSubmitting(false);
     setPaymentPendingChoice(null);
-    setNeedsApproval(false);
-    setApprovalTxHash(null);
     console.log("❌ Payment was canceled or failed - user is NOT entered in this round");
   }, []);
 
@@ -638,7 +535,6 @@ export function useRockPaperScissors() {
     isSubmitting,
     isConfirming: isConfirming,
     paymentPendingChoice,
-    needsApproval,
     isWritePending,
 
     // Stats
