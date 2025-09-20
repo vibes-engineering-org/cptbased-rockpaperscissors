@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Progress } from "~/components/ui/progress";
 import { Separator } from "~/components/ui/separator";
-import { Trophy, Clock, Users, DollarSign, Share2 } from "lucide-react";
+import { Trophy, Clock, Users, DollarSign, Share2, Shield, Zap } from "lucide-react";
 import { formatEther } from "viem";
 
 export default function RockPaperScissorsGame() {
@@ -56,8 +56,8 @@ export default function RockPaperScissorsGame() {
         return (
           <div className="space-y-4">
             <div className="text-center space-y-2">
-              <Badge variant="default" className="bg-green-500 text-white">
-                Entry Open
+              <Badge variant="default" className="bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg animate-pulse">
+                🎮 Entry Open
               </Badge>
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
@@ -76,7 +76,11 @@ export default function RockPaperScissorsGame() {
                       key={choice}
                       variant={selectedChoice === choice ? "default" : "outline"}
                       size="lg"
-                      className="h-20 flex flex-col gap-2 text-lg"
+                      className={`h-20 flex flex-col gap-2 text-lg transition-all duration-300 hover:scale-105 ${
+                        selectedChoice === choice
+                          ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg"
+                          : "hover:bg-gradient-to-br hover:from-blue-50 hover:to-purple-50 border-2 hover:border-blue-300"
+                      }`}
                       onClick={() => handleChoiceSelect(choice)}
                       disabled={isSubmitting || isConfirming}
                     >
@@ -104,7 +108,9 @@ export default function RockPaperScissorsGame() {
       case "waiting":
         return (
           <div className="text-center space-y-4">
-            <Badge variant="secondary">Next Round</Badge>
+            <Badge variant="secondary" className="bg-gradient-to-r from-orange-400 to-pink-500 text-white">
+              ⏳ Next Round
+            </Badge>
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
@@ -120,7 +126,9 @@ export default function RockPaperScissorsGame() {
       case "complete":
         return (
           <div className="text-center space-y-4">
-            <Badge variant="outline">Round Complete</Badge>
+            <Badge variant="outline" className="bg-gradient-to-r from-purple-500 to-blue-600 text-white border-0">
+              🏁 Round Complete
+            </Badge>
             {currentRound?.chainMove !== undefined && currentRound?.winningChoice !== undefined && (
               <div className="space-y-3">
                 <div className="flex justify-center items-center gap-8">
@@ -136,12 +144,15 @@ export default function RockPaperScissorsGame() {
 
                 {playerChoice === currentRound.winningChoice ? (
                   <div className="space-y-3">
-                    <div className="text-green-600 font-medium flex items-center justify-center gap-2">
+                    <div className="text-green-600 font-medium flex items-center justify-center gap-2 animate-bounce">
                       <Trophy className="w-4 h-4" />
-                      You Won!
+                      🎉 You Won!
                     </div>
-                    <Button onClick={() => claimWinnings(currentRound.id)} className="w-full">
-                      Claim Winnings
+                    <Button
+                      onClick={() => claimWinnings(currentRound.id)}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg"
+                    >
+                      💰 Claim Winnings
                     </Button>
                   </div>
                 ) : playerChoice !== null ? (
@@ -177,7 +188,9 @@ export default function RockPaperScissorsGame() {
     <div className="w-[400px] mx-auto py-8 px-4 min-h-screen space-y-6">
       {/* Header */}
       <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold">Rock Paper Scissors</h1>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+          🪨📄✂️ Rock Paper Scissors
+        </h1>
         <p className="text-sm text-muted-foreground">
           Rounds every 6 hours • 15-minute entry window
         </p>
@@ -201,19 +214,19 @@ export default function RockPaperScissorsGame() {
         <CardContent className="space-y-4">
           {/* Prize Pool & Stats */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
+            <div className="text-center p-3 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
               <div className="flex items-center justify-center gap-1 text-lg font-semibold text-green-600">
                 <DollarSign className="w-4 h-4" />
                 {formatEther(currentRound.prizePool)}
               </div>
-              <p className="text-xs text-muted-foreground">Prize Pool (USDC)</p>
+              <p className="text-xs text-muted-foreground">💰 Prize Pool (USDC)</p>
             </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-lg font-semibold">
+            <div className="text-center p-3 rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200">
+              <div className="flex items-center justify-center gap-1 text-lg font-semibold text-blue-600">
                 <Users className="w-4 h-4" />
                 {currentRound.playerEntries}
               </div>
-              <p className="text-xs text-muted-foreground">Players Entered</p>
+              <p className="text-xs text-muted-foreground">👥 Players Entered</p>
             </div>
           </div>
 
@@ -232,27 +245,35 @@ export default function RockPaperScissorsGame() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Games Played</p>
-                <p className="font-semibold">{playerStats.totalGames}</p>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-gray-50 to-slate-50 border">
+                <p className="text-muted-foreground flex items-center gap-1">
+                  🎮 Games Played
+                </p>
+                <p className="font-semibold text-slate-700">{playerStats.totalGames}</p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Win Rate</p>
-                <p className="font-semibold">
+              <div className="p-3 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
+                <p className="text-muted-foreground flex items-center gap-1">
+                  📊 Win Rate
+                </p>
+                <p className="font-semibold text-blue-600">
                   {playerStats.totalGames > 0
                     ? Math.round((playerStats.wins / playerStats.totalGames) * 100)
                     : 0}%
                 </p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Total Winnings</p>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
+                <p className="text-muted-foreground flex items-center gap-1">
+                  💰 Total Winnings
+                </p>
                 <p className="font-semibold text-green-600">
                   {formatEther(playerStats.totalWinnings)} USDC
                 </p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Win Streak</p>
-                <p className="font-semibold">{playerStats.currentStreak}</p>
+              <div className="p-3 rounded-lg bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200">
+                <p className="text-muted-foreground flex items-center gap-1">
+                  🔥 Win Streak
+                </p>
+                <p className="font-semibold text-orange-600">{playerStats.currentStreak}</p>
               </div>
             </div>
           </CardContent>
@@ -292,13 +313,35 @@ export default function RockPaperScissorsGame() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">How It Works</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>• Rounds start every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)</p>
-          <p>• 15-minute entry window, 1 USDC per entry</p>
-          <p>• 9% rake, 91% goes to prize pool</p>
-          <p>• Chain determines random move after entries close</p>
-          <p>• Winners split the pot equally</p>
-          <p>• Rock beats Scissors, Paper beats Rock, Scissors beats Paper</p>
+        <CardContent className="text-sm text-muted-foreground space-y-3">
+          <div className="flex items-start gap-2">
+            <Clock className="w-4 h-4 text-blue-500 mt-0.5" />
+            <span>Rounds start every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
+            <span>15-minute entry window, 1 USDC per entry</span>
+          </div>
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200">
+            <Shield className="w-4 h-4 text-blue-600 mt-0.5" />
+            <div>
+              <span className="font-medium text-blue-800">Platform Support: 9% helps maintain the game</span>
+              <br />
+              <span className="text-xs text-blue-600">91% of every entry goes directly to winners 🏆</span>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
+            <span>Blockchain determines random move after entries close</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <Trophy className="w-4 h-4 text-purple-500 mt-0.5" />
+            <span>Winners split the pot equally</span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-lg mt-0.5">🪨📄✂️</span>
+            <span>Rock beats Scissors, Paper beats Rock, Scissors beats Paper</span>
+          </div>
         </CardContent>
       </Card>
     </div>
