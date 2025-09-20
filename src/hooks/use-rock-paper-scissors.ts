@@ -82,6 +82,7 @@ export function useRockPaperScissors() {
   }>>([]);
   const [playerEntries, setPlayerEntries] = useState<Map<string, Set<number>>>(new Map());
   const [winners, setWinners] = useState<Map<number, string[]>>(new Map()); // roundId -> farcasterIds
+  const [claimedWinnings, setClaimedWinnings] = useState<Map<string, Set<number>>>(new Map()); // fid -> claimed roundIds
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPendingChoice, setPaymentPendingChoice] = useState<GameChoice | null>(null);
@@ -142,6 +143,21 @@ export function useRockPaperScissors() {
         setWinners(winnersMap);
       } catch (error) {
         console.error('Failed to load game winners:', error);
+      }
+    }
+
+    // Load claimed winnings from localStorage
+    const savedClaimed = localStorage.getItem('farcasterGameClaimed');
+    if (savedClaimed) {
+      try {
+        const claimedData = JSON.parse(savedClaimed);
+        const claimedMap = new Map<string, Set<number>>();
+        claimedData.forEach(([fid, rounds]: [string, number[]]) => {
+          claimedMap.set(fid, new Set(rounds));
+        });
+        setClaimedWinnings(claimedMap);
+      } catch (error) {
+        console.error('Failed to load claimed winnings:', error);
       }
     }
   }, []);
@@ -413,11 +429,11 @@ export function useRockPaperScissors() {
   }, [address, context?.user?.fid, winners, playerEntries, getLiveGameData]);
 
   const enterGame = useCallback(async (choice: GameChoice) => {
-    if (!currentRound || gameState !== "entry" || !address) return;
+    if (!currentRound || gameState !== "entry" || !address || !context?.user?.fid) return;
 
     // Check if user has already entered this round or has payment pending
     if (hasUserEnteredRound(currentRound.id)) {
-      console.log("User has already entered this round");
+      console.log(`User FID ${context.user.fid} has already entered round ${currentRound.id}`);
       return;
     }
 
@@ -431,7 +447,7 @@ export function useRockPaperScissors() {
     setPaymentStep('prize_pool');
 
     try {
-      console.log(`Entering game with choice ${choice} - dual transaction payment...`);
+      console.log(`FID ${context.user.fid} entering game with choice ${choice} - dual transaction payment...`);
       console.log(`Step 1: Sending $0.91 USDC to prize pool address`);
 
       // First transaction: Send $0.91 USDC to the prize pool
@@ -447,14 +463,15 @@ export function useRockPaperScissors() {
       setPaymentPendingChoice(null);
       setPaymentStep(null);
     }
-  }, [currentRound, gameState, address, hasUserEnteredRound, paymentPendingChoice, writeContract]);
+  }, [currentRound, gameState, address, hasUserEnteredRound, paymentPendingChoice, writeContract, context?.user?.fid]);
 
   // Handle transaction confirmations
   useEffect(() => {
-    if (isConfirmed && hash && paymentPendingChoice !== null && currentRound && paymentStep) {
+    if (isConfirmed && hash && paymentPendingChoice !== null && currentRound && paymentStep && context?.user?.fid) {
       if (paymentStep === 'prize_pool') {
         // First transaction confirmed - now send platform fee
         console.log(`✅ Step 1 confirmed: $0.91 USDC sent to prize pool at ${POT_ADDRESS}`);
+        console.log(`   Transaction hash: ${hash}`);
         console.log(`Step 2: Sending $0.09 USDC platform fee to creator address`);
 
         setPrizePoolTxHash(hash);
@@ -470,9 +487,11 @@ export function useRockPaperScissors() {
       } else if (paymentStep === 'platform_fee') {
         // Both transactions confirmed
         console.log(`✅ Step 2 confirmed: $0.09 USDC platform fee sent to creator at ${CREATOR_ADDRESS}`);
-        console.log(`🎉 Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
+        console.log(`   Transaction hash: ${hash}`);
+        console.log(`🎉 FID ${context.user.fid} successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
         console.log(`💰 Total payment: $1.00 USDC ($0.91 to prize pool + $0.09 platform fee)`);
 
+        // Only set player choice and add entry after BOTH transactions succeed
         setPlayerChoice(paymentPendingChoice);
         addUserEntry(currentRound.id);
         setPaymentStep('complete');
@@ -487,13 +506,13 @@ export function useRockPaperScissors() {
 
     if (writeError) {
       console.error("Transaction failed:", writeError);
-      console.log(`❌ Payment step '${paymentStep}' failed - user is NOT entered in this round`);
+      console.log(`❌ Payment step '${paymentStep}' failed - user FID ${context?.user?.fid} is NOT entered in this round`);
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
       setPaymentStep(null);
       setPrizePoolTxHash(null);
     }
-  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, writeContract, paymentStep]);
+  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, writeContract, paymentStep, context?.user?.fid]);
 
   // Legacy functions for backwards compatibility with existing UI
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
@@ -510,13 +529,33 @@ export function useRockPaperScissors() {
   }, []);
 
   const claimWinnings = useCallback(async (roundId: number) => {
+    if (!context?.user?.fid) return;
+
+    const userFid = context.user.fid.toString();
+
     try {
       // For demo purposes - in production this would call the actual smart contract
-      console.log(`Claiming winnings for round ${roundId}`);
+      console.log(`FID ${userFid} claiming winnings for round ${roundId}`);
+
+      // Mark this round as claimed for this user
+      const updatedClaimed = new Map(claimedWinnings);
+      const userClaimed = updatedClaimed.get(userFid) ?? new Set<number>();
+      userClaimed.add(roundId);
+      updatedClaimed.set(userFid, userClaimed);
+      setClaimedWinnings(updatedClaimed);
+
+      // Save to localStorage
+      const claimedData = Array.from(updatedClaimed.entries()).map(([fid, rounds]) => [
+        fid,
+        Array.from(rounds)
+      ]);
+      localStorage.setItem('farcasterGameClaimed', JSON.stringify(claimedData));
+
+      console.log(`✅ FID ${userFid} successfully claimed winnings for round ${roundId}`);
     } catch (error) {
       console.error("Failed to claim winnings:", error);
     }
-  }, []);
+  }, [context?.user?.fid, claimedWinnings]);
 
   const getChoiceName = (choice: GameChoice): string => {
     switch (choice) {
@@ -554,6 +593,7 @@ export function useRockPaperScissors() {
     if (!context?.user?.fid) return [];
 
     const userFid = context.user.fid.toString();
+    const userClaimedRounds = claimedWinnings.get(userFid) ?? new Set<number>();
     const unclaimed: Array<{
       roundId: number;
       prizeAmount: bigint;
@@ -561,12 +601,11 @@ export function useRockPaperScissors() {
     }> = [];
 
     winners.forEach((roundWinners, roundId) => {
-      if (roundWinners.includes(userFid)) {
+      if (roundWinners.includes(userFid) && !userClaimedRounds.has(roundId)) {
         const liveData = getLiveGameData(roundId);
         const prizePerWinner = liveData.prizePool / BigInt(roundWinners.length || 1);
 
-        // For demo purposes, assume all winnings are unclaimed
-        // In production, this would check the blockchain for claimed status
+        // Only include unclaimed winnings
         const winningChoice = calculateWinningChoice(generateChainMove(roundId));
 
         unclaimed.push({
@@ -578,7 +617,7 @@ export function useRockPaperScissors() {
     });
 
     return unclaimed.sort((a, b) => b.roundId - a.roundId); // Most recent first
-  }, [context?.user?.fid, winners, getLiveGameData, calculateWinningChoice, generateChainMove]);
+  }, [context?.user?.fid, winners, claimedWinnings, getLiveGameData, calculateWinningChoice, generateChainMove]);
 
   return {
     // Game state

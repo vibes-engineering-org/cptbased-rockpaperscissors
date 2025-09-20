@@ -191,8 +191,8 @@ export default function RockPaperScissorsGame() {
                             className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-2 rounded-lg shadow-lg text-xs"
                           >
                             {paymentPendingChoice === choice ? (
-                              paymentStep === 'prize_pool' && isConfirming ? "Sending to Pool..." :
-                              paymentStep === 'platform_fee' && isConfirming ? "Sending Fee..." :
+                              paymentStep === 'prize_pool' && isConfirming ? "Sending $0.91..." :
+                              paymentStep === 'platform_fee' && isConfirming ? "Sending $0.09..." :
                               paymentStep === 'prize_pool' ? "Pool Sent ✓" :
                               paymentStep === 'platform_fee' ? "Sending Fee..." :
                               isConfirming ? "Processing..." : "Entry Pending"
@@ -204,7 +204,7 @@ export default function RockPaperScissorsGame() {
                       ))}
                     </div>
                     <p className="text-center text-xs text-muted-foreground">
-                      One payment of {formatUSDC(ENTRY_COST)} USDC enters you in the round. No entry without payment.
+                      Entry costs {formatUSDC(ENTRY_COST)} USDC total: $0.91 to prize pool + $0.09 platform fee. Two transactions required.
                     </p>
                   </div>
                 )}
@@ -562,11 +562,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>Two-step $1 USDC payment: $0.91 to prize pool + $0.09 platform fee</span>
+            <span>$1 USDC entry fee: $0.91 goes to prize pool, $0.09 platform fee</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Transparent split: you see both transactions in your wallet</span>
+            <span>Two separate transactions: complete transparency for all payments</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
