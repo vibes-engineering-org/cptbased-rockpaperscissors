@@ -33,12 +33,34 @@ const ENTRY_COST = BigInt(1000000); // 1 USDC (6 decimals)
 const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
 const RAKE_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798";
 
-// Mock contract ABI - in production, this would be the actual contract ABI
+// USDC Contract ABI for token transfers
+const USDC_ABI = [
+  {
+    name: "transfer",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" }
+    ]
+  },
+  {
+    name: "approve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" }
+    ]
+  }
+] as const;
+
+// Mock game contract ABI - in production, this would be the actual contract ABI
 const CONTRACT_ABI = [
   {
     name: "enterGame",
     type: "function",
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
     inputs: [
       { name: "choice", type: "uint8" },
       { name: "roundId", type: "uint256" }
@@ -65,7 +87,8 @@ const CONTRACT_ABI = [
   }
 ] as const;
 
-const CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Mock address
+const CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Mock game contract address
+const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC contract address
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
@@ -199,13 +222,12 @@ export function useRockPaperScissors() {
     if (!currentRound || gameState !== "entry" || !address) return;
 
     try {
-      // Call the actual smart contract to prompt for transaction
+      // Transfer 1 USDC to the game contract to enter
       writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
-        functionName: "enterGame",
-        args: [choice, BigInt(currentRound.id)],
-        value: ENTRY_COST
+        address: USDC_CONTRACT_ADDRESS,
+        abi: USDC_ABI,
+        functionName: "transfer",
+        args: [CONTRACT_ADDRESS, ENTRY_COST]
       });
 
       // Set player choice after initiating transaction

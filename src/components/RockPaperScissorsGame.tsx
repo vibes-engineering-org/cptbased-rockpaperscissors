@@ -83,6 +83,9 @@ export default function RockPaperScissorsGame() {
 
   const handleChoiceSelect = async (choice: GameChoice) => {
     if (isSubmitting || isConfirming || selectedChoice !== null) return;
+
+    // Explicitly handle all choice values including 0 (rock)
+    console.log(`Player selected choice: ${choice} (${getChoiceName(choice)})`);
     setSelectedChoice(choice);
     await enterGame(choice);
   };
@@ -139,11 +142,11 @@ export default function RockPaperScissorsGame() {
                 <div className="grid grid-cols-3 gap-4">
                   {([0, 1, 2] as GameChoice[]).map((choice) => (
                     <Button
-                      key={choice}
-                      variant={selectedChoice === choice ? "default" : "outline"}
+                      key={`choice-${choice}`}
+                      variant={(selectedChoice !== null && selectedChoice === choice) ? "default" : "outline"}
                       size="lg"
                       className={`h-28 flex flex-col gap-3 text-lg transition-all duration-200 hover:scale-105 transform ${
-                        selectedChoice === choice
+                        (selectedChoice !== null && selectedChoice === choice)
                           ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 text-white shadow-2xl border-0"
                           : "hover:bg-gradient-to-br hover:from-cyan-50 hover:via-blue-50 hover:to-purple-50 border-2 border-cyan-300 hover:border-cyan-500 hover:shadow-xl bg-gradient-to-br from-white to-blue-50"
                       }`}
