@@ -52,12 +52,12 @@ const USDC_ABI = [
 
 const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC contract address
 
-// DUAL TRANSACTION ENTRY SYSTEM:
-// Players make two USDC transfers:
-// 1. $0.91 USDC to the pot address (prize pool)
-// 2. $0.09 USDC to the creator address (platform fee)
-// Both transactions must complete successfully for entry to be confirmed
-// Entry is confirmed when both payments are successful
+// SINGLE TRANSACTION ENTRY SYSTEM:
+// Players make one USDC transfer of $1.00 to the pot address
+// The pot address contract automatically splits the payment:
+// - $0.91 USDC stays in the prize pool
+// - $0.09 USDC is automatically forwarded to the creator address
+// Entry is confirmed when the single payment is successful
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
@@ -85,8 +85,6 @@ export function useRockPaperScissors() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentPendingChoice, setPaymentPendingChoice] = useState<GameChoice | null>(null);
-  const [potTransactionHash, setPotTransactionHash] = useState<string | null>(null);
-  const [creatorTransactionHash, setCreatorTransactionHash] = useState<string | null>(null);
 
   // Check if current Farcaster user has already entered this round
   const hasUserEnteredRound = useCallback((roundId: number): boolean => {
@@ -370,8 +368,6 @@ export function useRockPaperScissors() {
       if (paymentPendingChoice !== null && currentRound && currentRound.id !== roundInfo.id) {
         setPaymentPendingChoice(null);
         setIsSubmitting(false);
-        setCreatorTransactionHash(null);
-        setPotTransactionHash(null);
         console.log("Round changed - clearing pending payment state");
       }
     };
@@ -430,15 +426,15 @@ export function useRockPaperScissors() {
     setPaymentPendingChoice(choice);
 
     try {
-      console.log(`Entering game with choice ${choice} - splitting $1 USDC payment...`);
-      console.log(`Payment breakdown: $0.09 USDC to creator + $0.91 USDC to prize pool`);
+      console.log(`Entering game with choice ${choice} - single $1 USDC payment with automatic split...`);
+      console.log(`Payment: $1.00 USDC to pot contract which automatically forwards $0.09 USDC to creator`);
 
-      // First transfer: $0.09 USDC to creator address (user's wallet)
+      // Single transfer: $1.00 USDC to pot address (which handles the automatic split)
       writeContract({
         address: USDC_CONTRACT_ADDRESS,
         abi: USDC_ABI,
         functionName: 'transfer',
-        args: [CREATOR_ADDRESS, RAKE_AMOUNT],
+        args: [POT_ADDRESS, ENTRY_COST],
       });
     } catch (error) {
       console.error("Failed to initiate game entry:", error);
@@ -450,35 +446,17 @@ export function useRockPaperScissors() {
   // Handle transaction confirmations
   useEffect(() => {
     if (isConfirmed && hash && paymentPendingChoice !== null && currentRound) {
-      if (!creatorTransactionHash) {
-        // First transaction (creator) confirmed
-        setCreatorTransactionHash(hash);
-        console.log(`✅ Creator payment confirmed: $0.09 USDC to ${CREATOR_ADDRESS}`);
-        console.log(`🔄 Initiating prize pool payment: $0.91 USDC to ${POT_ADDRESS}`);
+      // Single transaction confirmed
+      console.log(`✅ Payment confirmed: $1.00 USDC to pot contract at ${POT_ADDRESS}`);
+      console.log(`🎉 Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
+      console.log(`💰 Pot contract automatically forwards $0.09 USDC to creator and keeps $0.91 USDC in prize pool`);
 
-        // Second transfer: $0.91 USDC to prize pool address
-        writeContract({
-          address: USDC_CONTRACT_ADDRESS,
-          abi: USDC_ABI,
-          functionName: 'transfer',
-          args: [POT_ADDRESS, POT_AMOUNT],
-        });
-      } else if (!potTransactionHash) {
-        // Second transaction (pot) confirmed
-        setPotTransactionHash(hash);
-        console.log(`✅ Prize pool payment confirmed: $0.91 USDC to ${POT_ADDRESS}`);
-        console.log(`🎉 Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
-        console.log(`💰 Total payments: $0.09 USDC to creator + $0.91 USDC to prize pool = $1.00 USDC`);
+      setPlayerChoice(paymentPendingChoice);
+      addUserEntry(currentRound.id);
 
-        setPlayerChoice(paymentPendingChoice);
-        addUserEntry(currentRound.id);
-
-        // Reset all states
-        setIsSubmitting(false);
-        setPaymentPendingChoice(null);
-        setCreatorTransactionHash(null);
-        setPotTransactionHash(null);
-      }
+      // Reset all states
+      setIsSubmitting(false);
+      setPaymentPendingChoice(null);
     }
 
     if (writeError) {
@@ -486,10 +464,8 @@ export function useRockPaperScissors() {
       console.log("❌ Payment failed - user is NOT entered in this round");
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
-      setCreatorTransactionHash(null);
-      setPotTransactionHash(null);
     }
-  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, potTransactionHash, creatorTransactionHash, writeContract]);
+  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, writeContract]);
 
   // Legacy functions for backwards compatibility with existing UI
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
@@ -500,8 +476,6 @@ export function useRockPaperScissors() {
   const onPaymentCanceled = useCallback(() => {
     setIsSubmitting(false);
     setPaymentPendingChoice(null);
-    setCreatorTransactionHash(null);
-    setPotTransactionHash(null);
     console.log("❌ Payment was canceled or failed - user is NOT entered in this round");
   }, []);
 
