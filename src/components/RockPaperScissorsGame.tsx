@@ -37,6 +37,7 @@ export default function RockPaperScissorsGame() {
     claimWinnings,
     isSubmitting,
     isConfirming,
+    paymentPendingChoice,
     playerStats,
     leaderboard,
     hasUserEnteredRound,
@@ -94,9 +95,9 @@ export default function RockPaperScissorsGame() {
       return;
     }
 
-    // Explicitly handle all choice values including 0 (rock)
-    console.log(`Player selected choice: ${choice} (${getChoiceName(choice)})`);
-    await enterGame(choice);
+    // This function is only called to validate the choice selection
+    // The actual entry logic is handled through payment callbacks
+    console.log(`Player selected choice: ${choice} (${getChoiceName(choice)}) - initiating payment`);
   };
 
   const handleShare = async () => {
@@ -175,19 +176,23 @@ export default function RockPaperScissorsGame() {
                             <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
                             <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
                           </div>
+                          {/* TEMPORARY: Direct payment to rake address - In production, this should go to game contract
+                              which then automatically distributes: $0.09 to rake address + $0.91 to prize pool */}
                           <DaimoPayTransferButton
                             text="Enter $1"
                             toAddress="0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"
                             amount="1000000"
                             onPaymentStarted={() => {
                               setSelectedChoice(choice);
-                              handleChoiceSelect(choice);
+                              console.log(`Payment started for choice ${choice} - $1 USDC`);
                             }}
                             onPaymentCompleted={() => {
+                              console.log(`Payment completed for choice ${choice} - $1 USDC paid`);
                               onPaymentCompleted(choice);
                             }}
                             onPaymentCanceled={() => {
                               setSelectedChoice(null);
+                              console.log(`Payment canceled for choice ${choice} - no entry recorded`);
                               onPaymentCanceled();
                             }}
                           />

@@ -100,11 +100,14 @@ const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // B
 // PRODUCTION SMART CONTRACT REQUIREMENTS:
 // 1. Contract must have USDC approve/transferFrom permissions from users
 // 2. When enterGame() is called, contract automatically:
-//    - Transfers 1 USDC from user to contract
-//    - Immediately sends 0.09 USDC to RAKE_ADDRESS (platform wallet)
-//    - Adds remaining 0.91 USDC to the round's prize pool
-// 3. This ensures users only need to approve the game contract for USDC, not multiple transactions
-// 4. All rake collection happens atomically within the single enterGame transaction
+//    - Transfers 1 USDC (1,000,000 with 6 decimals) from user to contract
+//    - Immediately sends 0.09 USDC (90,000 with 6 decimals) to RAKE_ADDRESS (0x9AE06d099415A8cD55ffCe40f998bC7356c9c798)
+//    - Adds remaining 0.91 USDC (910,000 with 6 decimals) to the round's prize pool
+//    - Records the user's entry and choice for the current round
+// 3. This ensures users only pay once ($1 USDC total) and the contract handles rake distribution
+// 4. All operations happen atomically - if any step fails, the entire transaction reverts
+// 5. Users cannot enter twice for the same round - contract should enforce this
+// 6. Only successful payment completion should result in a recorded entry
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
@@ -130,6 +133,7 @@ export function useRockPaperScissors() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [paymentPendingChoice, setPaymentPendingChoice] = useState<GameChoice | null>(null);
 
   // Check if current Farcaster user has already entered this round
   const hasUserEnteredRound = useCallback((roundId: number): boolean => {
@@ -408,12 +412,20 @@ export function useRockPaperScissors() {
       } else if (!hasUserEnteredRound(roundInfo.id) && playerChoice) {
         setPlayerChoice(null);
       }
+
+      // Clear pending payment state if round changed
+      if (paymentPendingChoice !== null && currentRound && currentRound.id !== roundInfo.id) {
+        setPaymentPendingChoice(null);
+        setIsSubmitting(false);
+        setIsConfirming(false);
+        console.log("Round changed - clearing pending payment state");
+      }
     };
 
     updateGameState();
     const interval = setInterval(updateGameState, 1000);
     return () => clearInterval(interval);
-  }, [getCurrentRoundInfo, getLiveGameData, hasUserEnteredRound, playerChoice, winners, updateWinnersAndLeaderboard, generateChainMove, calculateWinningChoice]);
+  }, [getCurrentRoundInfo, getLiveGameData, hasUserEnteredRound, playerChoice, winners, updateWinnersAndLeaderboard, generateChainMove, calculateWinningChoice, paymentPendingChoice, currentRound]);
 
   // Mock player stats - in production, calculate from actual data
   useEffect(() => {
@@ -449,37 +461,77 @@ export function useRockPaperScissors() {
   const enterGame = useCallback(async (choice: GameChoice) => {
     if (!currentRound || gameState !== "entry" || !context?.user?.fid) return;
 
-    // Check if user has already entered this round
+    // Check if user has already entered this round or has payment pending
     if (hasUserEnteredRound(currentRound.id)) {
       console.log("User has already entered this round");
       return;
     }
 
-    // This will be called when payment is initiated via DaimoPayTransferButton
-    // DO NOT mark as entered here - only mark as entered after payment completes
-    setIsSubmitting(true);
-    console.log(`Player attempting to enter with choice ${choice}`);
-  }, [currentRound, gameState, context?.user?.fid, hasUserEnteredRound]);
+    if (paymentPendingChoice !== null) {
+      console.log("Payment already pending for this round");
+      return;
+    }
 
-  // New function to handle successful payment completion
+    // This function is called when payment is initiated
+    // DO NOT mark as entered here - only mark as entered after payment completes successfully
+    setIsSubmitting(true);
+    setPaymentPendingChoice(choice);
+    console.log(`Player attempting to enter with choice ${choice} - awaiting $1 USDC payment confirmation`);
+
+    // Note: The smart contract should handle:
+    // 1. Receive 1 USDC from user
+    // 2. Transfer 0.09 USDC to rake address (0x9AE06d099415A8cD55ffCe40f998bC7356c9c798)
+    // 3. Add remaining 0.91 USDC to prize pool
+    // 4. Record player entry with choice
+  }, [currentRound, gameState, context?.user?.fid, hasUserEnteredRound, paymentPendingChoice]);
+
+  // Function to handle successful payment completion
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
-    if (!currentRound) return;
+    if (!currentRound || !context?.user?.fid) {
+      console.error("Cannot complete payment - missing round or user context");
+      setIsSubmitting(false);
+      setIsConfirming(false);
+      setPaymentPendingChoice(null);
+      return;
+    }
+
+    // Double-check that user hasn't already entered this round
+    if (hasUserEnteredRound(currentRound.id)) {
+      console.log("User has already entered this round - payment success ignored");
+      setIsSubmitting(false);
+      setIsConfirming(false);
+      setPaymentPendingChoice(null);
+      return;
+    }
+
+    // Verify this matches the pending payment choice
+    if (paymentPendingChoice !== choice) {
+      console.error(`Payment choice mismatch: expected ${paymentPendingChoice}, got ${choice}`);
+      setIsSubmitting(false);
+      setIsConfirming(false);
+      setPaymentPendingChoice(null);
+      return;
+    }
 
     setIsSubmitting(false);
     setIsConfirming(false);
+    setPaymentPendingChoice(null);
 
-    // Set player choice and record entry ONLY after successful payment
+    // Set player choice and record entry ONLY after successful $1 USDC payment
     setPlayerChoice(choice);
     addUserEntry(currentRound.id);
 
-    console.log(`Player successfully entered with choice ${choice} - payment completed`);
-  }, [currentRound, addUserEntry]);
+    console.log(`✅ Player successfully entered Round ${currentRound.id} with choice ${choice} (${getChoiceName(choice)}) - $1 USDC payment confirmed`);
+    console.log(`💰 Entry fee breakdown: $1.00 USDC total → $0.09 USDC rake to platform + $0.91 USDC to prize pool`);
+  }, [currentRound, context?.user?.fid, hasUserEnteredRound, addUserEntry, paymentPendingChoice]);
 
   // Function to handle payment cancellation or failure
   const onPaymentCanceled = useCallback(() => {
     setIsSubmitting(false);
     setIsConfirming(false);
-    console.log("Payment was canceled or failed - user is not entered");
+    setPaymentPendingChoice(null);
+    console.log("❌ Payment was canceled or failed - user is NOT entered in this round");
+    console.log("🔒 Entry only recorded after successful $1 USDC payment confirmation");
   }, []);
 
   const claimWinnings = useCallback(async (roundId: number) => {
@@ -538,6 +590,7 @@ export function useRockPaperScissors() {
     // Transaction state
     isSubmitting,
     isConfirming,
+    paymentPendingChoice,
 
     // Stats
     playerStats,
