@@ -10,7 +10,6 @@ import { Progress } from "~/components/ui/progress";
 import { Separator } from "~/components/ui/separator";
 import { Trophy, Clock, Users, DollarSign, Share2, Shield, Zap, Bell } from "lucide-react";
 import { formatEther } from "viem";
-import { DaimoPayTransferButton } from "./daimo-pay-transfer-button";
 
 // Client-only component for time-sensitive displays
 function ClientOnlyTimeDisplay({ children }: { children: React.ReactNode }) {
@@ -38,6 +37,8 @@ export default function RockPaperScissorsGame() {
     isSubmitting,
     isConfirming,
     paymentPendingChoice,
+    needsApproval,
+    isWritePending,
     playerStats,
     leaderboard,
     hasUserEnteredRound,
@@ -45,9 +46,7 @@ export default function RockPaperScissorsGame() {
     getChoiceEmoji,
     formatTimeRemaining,
     formatUSDC,
-    ENTRY_COST,
-    onPaymentCompleted,
-    onPaymentCanceled
+    ENTRY_COST
   } = useRockPaperScissors();
 
   const { sdk, context, isSDKLoaded } = useMiniAppSdk();
@@ -95,8 +94,8 @@ export default function RockPaperScissorsGame() {
       return;
     }
 
-    // This function is only for validation - entry happens only after payment
-    console.log(`Player selected choice: ${choice} (${getChoiceName(choice)}) - payment required to enter`);
+    setSelectedChoice(choice);
+    await enterGame(choice);
   };
 
   const handleShare = async () => {
@@ -185,28 +184,21 @@ export default function RockPaperScissorsGame() {
                             <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
                             <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
                           </div>
-                          {/* Payment goes to game contract which auto-distributes:
-                              - $0.09 USDC to rake address (0x9AE06d099415A8cD55ffCe40f998bC7356c9c798)
-                              - $0.91 USDC to prize pool for winners */}
-                          <DaimoPayTransferButton
-                            text="Enter $1"
-                            toAddress="0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"
-                            tokenAddress="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-                            amount="1"
-                            onPaymentStarted={() => {
-                              setSelectedChoice(choice);
-                              console.log(`Payment started for choice ${choice} - $1 USDC`);
-                            }}
-                            onPaymentCompleted={() => {
-                              console.log(`Payment completed for choice ${choice} - $1 USDC paid`);
-                              onPaymentCompleted(choice);
-                            }}
-                            onPaymentCanceled={() => {
-                              setSelectedChoice(null);
-                              console.log(`Payment canceled for choice ${choice} - no entry recorded`);
-                              onPaymentCanceled();
-                            }}
-                          />
+                          <Button
+                            onClick={() => handleChoiceSelect(choice)}
+                            disabled={isSubmitting || isConfirming || paymentPendingChoice !== null}
+                            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg"
+                          >
+                            {paymentPendingChoice === choice ? (
+                              needsApproval ? (
+                                isWritePending ? "Approving..." : "Approval Pending"
+                              ) : (
+                                isConfirming ? "Entering..." : "Entry Pending"
+                              )
+                            ) : (
+                              "Enter $1 USDC"
+                            )}
+                          </Button>
                         </div>
                       ))}
                     </div>
