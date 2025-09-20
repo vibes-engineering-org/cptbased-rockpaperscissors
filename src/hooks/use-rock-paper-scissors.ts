@@ -29,7 +29,7 @@ export interface PlayerStats {
 
 const ROUND_DURATION_MINUTES = 15; // 15 minute rounds
 const ENTRY_WINDOW_MINUTES = 15; // 15 minutes to enter (continuous back-to-back rounds)
-const ENTRY_COST = parseEther("1"); // 1 USDC
+const ENTRY_COST = BigInt(1000000); // 1 USDC (6 decimals)
 const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
 const RAKE_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798";
 
@@ -262,6 +262,27 @@ export function useRockPaperScissors() {
     }
   };
 
+  const formatUSDC = (amount: bigint): string => {
+    // USDC has 6 decimals
+    const divisor = BigInt(1000000);
+    const whole = amount / divisor;
+    const fractional = amount % divisor;
+
+    if (fractional === BigInt(0)) {
+      return whole.toString();
+    }
+
+    // Format fractional part with up to 6 decimal places, removing trailing zeros
+    const fractionalStr = fractional.toString().padStart(6, '0');
+    const trimmedFractional = fractionalStr.replace(/0+$/, '');
+
+    if (trimmedFractional === '') {
+      return whole.toString();
+    }
+
+    return `${whole}.${trimmedFractional}`;
+  };
+
   return {
     // Game state
     currentRound,
@@ -285,6 +306,7 @@ export function useRockPaperScissors() {
     getChoiceName,
     getChoiceEmoji,
     formatTimeRemaining,
+    formatUSDC,
 
     // Constants
     ENTRY_COST,

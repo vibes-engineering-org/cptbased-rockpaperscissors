@@ -41,6 +41,7 @@ export default function RockPaperScissorsGame() {
     getChoiceName,
     getChoiceEmoji,
     formatTimeRemaining,
+    formatUSDC,
     ENTRY_COST
   } = useRockPaperScissors();
 
@@ -155,7 +156,7 @@ export default function RockPaperScissorsGame() {
                   ))}
                 </div>
                 <p className="text-center text-xs text-muted-foreground">
-                  Entry fee: {formatEther(ENTRY_COST)} USDC
+                  Entry fee: {formatUSDC(ENTRY_COST)} USDC
                 </p>
               </div>
             ) : (
