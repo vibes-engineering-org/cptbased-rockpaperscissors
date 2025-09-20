@@ -370,6 +370,8 @@ export function useRockPaperScissors() {
       if (paymentPendingChoice !== null && currentRound && currentRound.id !== roundInfo.id) {
         setPaymentPendingChoice(null);
         setIsSubmitting(false);
+        setCreatorTransactionHash(null);
+        setPotTransactionHash(null);
         console.log("Round changed - clearing pending payment state");
       }
     };
@@ -429,14 +431,14 @@ export function useRockPaperScissors() {
 
     try {
       console.log(`Entering game with choice ${choice} - splitting $1 USDC payment...`);
-      console.log(`Payment breakdown: $0.91 USDC to pot + $0.09 USDC to creator`);
+      console.log(`Payment breakdown: $0.09 USDC to creator + $0.91 USDC to prize pool`);
 
-      // First transfer: $0.91 USDC to pot address
+      // First transfer: $0.09 USDC to creator address (user's wallet)
       writeContract({
         address: USDC_CONTRACT_ADDRESS,
         abi: USDC_ABI,
         functionName: 'transfer',
-        args: [POT_ADDRESS, POT_AMOUNT],
+        args: [CREATOR_ADDRESS, RAKE_AMOUNT],
       });
     } catch (error) {
       console.error("Failed to initiate game entry:", error);
@@ -448,25 +450,25 @@ export function useRockPaperScissors() {
   // Handle transaction confirmations
   useEffect(() => {
     if (isConfirmed && hash && paymentPendingChoice !== null && currentRound) {
-      if (!potTransactionHash) {
-        // First transaction (pot) confirmed
-        setPotTransactionHash(hash);
-        console.log(`✅ Pot payment confirmed: $0.91 USDC to ${POT_ADDRESS}`);
-        console.log(`🔄 Initiating creator payment: $0.09 USDC to ${CREATOR_ADDRESS}`);
+      if (!creatorTransactionHash) {
+        // First transaction (creator) confirmed
+        setCreatorTransactionHash(hash);
+        console.log(`✅ Creator payment confirmed: $0.09 USDC to ${CREATOR_ADDRESS}`);
+        console.log(`🔄 Initiating prize pool payment: $0.91 USDC to ${POT_ADDRESS}`);
 
-        // Second transfer: $0.09 USDC to creator address
+        // Second transfer: $0.91 USDC to prize pool address
         writeContract({
           address: USDC_CONTRACT_ADDRESS,
           abi: USDC_ABI,
           functionName: 'transfer',
-          args: [CREATOR_ADDRESS, RAKE_AMOUNT],
+          args: [POT_ADDRESS, POT_AMOUNT],
         });
-      } else if (!creatorTransactionHash) {
-        // Second transaction (creator) confirmed
-        setCreatorTransactionHash(hash);
-        console.log(`✅ Creator payment confirmed: $0.09 USDC to ${CREATOR_ADDRESS}`);
+      } else if (!potTransactionHash) {
+        // Second transaction (pot) confirmed
+        setPotTransactionHash(hash);
+        console.log(`✅ Prize pool payment confirmed: $0.91 USDC to ${POT_ADDRESS}`);
         console.log(`🎉 Player successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
-        console.log(`💰 Total payments: $0.91 USDC to pot + $0.09 USDC to creator = $1.00 USDC`);
+        console.log(`💰 Total payments: $0.09 USDC to creator + $0.91 USDC to prize pool = $1.00 USDC`);
 
         setPlayerChoice(paymentPendingChoice);
         addUserEntry(currentRound.id);
@@ -474,8 +476,8 @@ export function useRockPaperScissors() {
         // Reset all states
         setIsSubmitting(false);
         setPaymentPendingChoice(null);
-        setPotTransactionHash(null);
         setCreatorTransactionHash(null);
+        setPotTransactionHash(null);
       }
     }
 
@@ -484,8 +486,8 @@ export function useRockPaperScissors() {
       console.log("❌ Payment failed - user is NOT entered in this round");
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
-      setPotTransactionHash(null);
       setCreatorTransactionHash(null);
+      setPotTransactionHash(null);
     }
   }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, potTransactionHash, creatorTransactionHash, writeContract]);
 
@@ -498,6 +500,8 @@ export function useRockPaperScissors() {
   const onPaymentCanceled = useCallback(() => {
     setIsSubmitting(false);
     setPaymentPendingChoice(null);
+    setCreatorTransactionHash(null);
+    setPotTransactionHash(null);
     console.log("❌ Payment was canceled or failed - user is NOT entered in this round");
   }, []);
 
