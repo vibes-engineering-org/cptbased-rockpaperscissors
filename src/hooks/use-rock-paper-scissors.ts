@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount } from "wagmi";
 import { base } from "wagmi/chains";
 import { parseEther, formatEther } from "viem";
 import { useMiniAppSdk } from "./use-miniapp-sdk";
@@ -128,10 +128,8 @@ export function useRockPaperScissors() {
   const [playerEntries, setPlayerEntries] = useState<Map<string, Set<number>>>(new Map());
   const [winners, setWinners] = useState<Map<number, string[]>>(new Map()); // roundId -> farcasterIds
 
-  const { writeContract, data: txHash, isPending: isSubmitting } = useWriteContract();
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({
-    hash: txHash,
-  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Check if current Farcaster user has already entered this round
   const hasUserEnteredRound = useCallback((roundId: number): boolean => {
@@ -449,7 +447,7 @@ export function useRockPaperScissors() {
   }, [address, context?.user?.fid, winners, playerEntries, getLiveGameData]);
 
   const enterGame = useCallback(async (choice: GameChoice) => {
-    if (!currentRound || gameState !== "entry" || !address || !context?.user?.fid) return;
+    if (!currentRound || gameState !== "entry" || !context?.user?.fid) return;
 
     // Check if user has already entered this round
     if (hasUserEnteredRound(currentRound.id)) {
@@ -457,44 +455,41 @@ export function useRockPaperScissors() {
       return;
     }
 
-    try {
-      // Single transaction: Transfer 1 USDC to the game contract
-      // The smart contract automatically handles the rake distribution:
-      // - Sends 0.09 USDC rake directly to the platform wallet (0x9AE06d099415A8cD55ffCe40f998bC7356c9c798)
-      // - Adds remaining 0.91 USDC to the prize pool
-      // This way, players only need to approve ONE transaction, not two
-      await writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
-        functionName: "enterGame",
-        args: [choice, BigInt(currentRound.id)]
-      });
+    // This will be called when payment is initiated via DaimoPayTransferButton
+    // DO NOT mark as entered here - only mark as entered after payment completes
+    setIsSubmitting(true);
+    console.log(`Player attempting to enter with choice ${choice}`);
+  }, [currentRound, gameState, context?.user?.fid, hasUserEnteredRound]);
 
-      // Set player choice and record entry
-      setPlayerChoice(choice);
-      addUserEntry(currentRound.id);
+  // New function to handle successful payment completion
+  const onPaymentCompleted = useCallback((choice: GameChoice) => {
+    if (!currentRound) return;
 
-      console.log(`Player entered with choice ${choice} - rake automatically sent to ${RAKE_ADDRESS}`);
-    } catch (error) {
-      console.error("Failed to enter game:", error);
-    }
-  }, [currentRound, gameState, address, context?.user?.fid, hasUserEnteredRound, addUserEntry, writeContract]);
+    setIsSubmitting(false);
+    setIsConfirming(false);
+
+    // Set player choice and record entry ONLY after successful payment
+    setPlayerChoice(choice);
+    addUserEntry(currentRound.id);
+
+    console.log(`Player successfully entered with choice ${choice} - payment completed`);
+  }, [currentRound, addUserEntry]);
+
+  // Function to handle payment cancellation or failure
+  const onPaymentCanceled = useCallback(() => {
+    setIsSubmitting(false);
+    setIsConfirming(false);
+    console.log("Payment was canceled or failed - user is not entered");
+  }, []);
 
   const claimWinnings = useCallback(async (roundId: number) => {
     try {
-      // Call the actual smart contract to claim winnings
-      writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
-        functionName: "claimWinnings",
-        args: [BigInt(roundId)]
-      });
-
+      // For demo purposes - in production this would call the actual smart contract
       console.log(`Claiming winnings for round ${roundId}`);
     } catch (error) {
       console.error("Failed to claim winnings:", error);
     }
-  }, [writeContract]);
+  }, []);
 
   const getChoiceName = (choice: GameChoice): string => {
     switch (choice) {
@@ -537,6 +532,8 @@ export function useRockPaperScissors() {
     // Actions
     enterGame,
     claimWinnings,
+    onPaymentCompleted,
+    onPaymentCanceled,
 
     // Transaction state
     isSubmitting,

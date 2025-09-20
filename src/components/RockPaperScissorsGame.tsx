@@ -10,6 +10,7 @@ import { Progress } from "~/components/ui/progress";
 import { Separator } from "~/components/ui/separator";
 import { Trophy, Clock, Users, DollarSign, Share2, Shield, Zap, Bell } from "lucide-react";
 import { formatEther } from "viem";
+import { DaimoPayTransferButton } from "./daimo-pay-transfer-button";
 
 // Client-only component for time-sensitive displays
 function ClientOnlyTimeDisplay({ children }: { children: React.ReactNode }) {
@@ -43,7 +44,9 @@ export default function RockPaperScissorsGame() {
     getChoiceEmoji,
     formatTimeRemaining,
     formatUSDC,
-    ENTRY_COST
+    ENTRY_COST,
+    onPaymentCompleted,
+    onPaymentCanceled
   } = useRockPaperScissors();
 
   const { sdk, context, isSDKLoaded } = useMiniAppSdk();
@@ -83,7 +86,7 @@ export default function RockPaperScissorsGame() {
   }, [currentRound]);
 
   const handleChoiceSelect = async (choice: GameChoice) => {
-    if (isSubmitting || isConfirming || selectedChoice !== null || !currentRound) return;
+    if (isSubmitting || isConfirming || !currentRound) return;
 
     // Check if user already entered this round
     if (hasUserEnteredRound(currentRound.id)) {
@@ -93,7 +96,6 @@ export default function RockPaperScissorsGame() {
 
     // Explicitly handle all choice values including 0 (rock)
     console.log(`Player selected choice: ${choice} (${getChoiceName(choice)})`);
-    setSelectedChoice(choice);
     await enterGame(choice);
   };
 
@@ -161,21 +163,35 @@ export default function RockPaperScissorsGame() {
                     </p>
                     <div className="grid grid-cols-3 gap-4">
                       {([0, 1, 2] as GameChoice[]).map((choice) => (
-                        <Button
+                        <div
                           key={`choice-${choice}`}
-                          variant={(selectedChoice !== null && selectedChoice === choice) ? "default" : "outline"}
-                          size="lg"
-                          className={`h-28 flex flex-col gap-3 text-lg transition-all duration-200 hover:scale-105 transform ${
+                          className={`h-28 flex flex-col gap-3 text-lg transition-all duration-200 hover:scale-105 transform rounded-lg ${
                             (selectedChoice !== null && selectedChoice === choice)
                               ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 text-white shadow-2xl border-0"
                               : "hover:bg-gradient-to-br hover:from-cyan-50 hover:via-blue-50 hover:to-purple-50 border-2 border-cyan-300 hover:border-cyan-500 hover:shadow-xl bg-gradient-to-br from-white to-blue-50"
-                          }`}
-                          onClick={() => handleChoiceSelect(choice)}
-                          disabled={isSubmitting || isConfirming || selectedChoice !== null}
+                          } p-2`}
                         >
-                          <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
-                          <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
-                        </Button>
+                          <div className="flex flex-col items-center gap-1 flex-1">
+                            <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
+                            <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
+                          </div>
+                          <DaimoPayTransferButton
+                            text="Enter $1"
+                            toAddress="0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"
+                            amount="1000000"
+                            onPaymentStarted={() => {
+                              setSelectedChoice(choice);
+                              handleChoiceSelect(choice);
+                            }}
+                            onPaymentCompleted={() => {
+                              onPaymentCompleted(choice);
+                            }}
+                            onPaymentCanceled={() => {
+                              setSelectedChoice(null);
+                              onPaymentCanceled();
+                            }}
+                          />
+                        </div>
                       ))}
                     </div>
                     <p className="text-center text-xs text-muted-foreground">
