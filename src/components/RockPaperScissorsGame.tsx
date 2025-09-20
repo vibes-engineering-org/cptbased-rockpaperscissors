@@ -82,21 +82,24 @@ export default function RockPaperScissorsGame() {
         return (
           <div className="space-y-4">
             <div className="text-center space-y-3">
-              <Badge variant="default" className="bg-gradient-to-r from-lime-400 via-green-500 to-emerald-600 text-white shadow-lg animate-pulse px-4 py-2">
+              <Badge variant="default" className="bg-gradient-to-r from-lime-400 via-green-500 to-emerald-600 text-white shadow-lg animate-pulse px-6 py-2 text-lg">
                 🎮 Entry Window Open
               </Badge>
-              <div className="bg-gradient-to-r from-orange-100 to-red-100 border border-orange-300 rounded-lg p-3">
-                <div className="flex items-center justify-center gap-2 text-orange-700 font-medium">
-                  <Clock className="w-5 h-5 text-red-500" />
-                  <span className="text-lg">Closing in: {formatTimeRemaining(timeRemaining)}</span>
+              <div className="bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 border-2 border-orange-400 rounded-xl p-4 shadow-lg">
+                <div className="flex items-center justify-center gap-3 text-orange-800 font-bold mb-3">
+                  <Clock className="w-6 h-6 text-red-600 animate-pulse" />
+                  <span className="text-2xl tracking-wide">Closing in: {formatTimeRemaining(timeRemaining)}</span>
                 </div>
                 <Progress
                   value={(timeRemaining / (15 * 60 * 1000)) * 100}
-                  className="mt-2 h-2"
+                  className="h-3 mb-2"
                   style={{
                     background: 'linear-gradient(to right, #f97316, #dc2626)'
                   }}
                 />
+                <p className="text-sm text-orange-600 font-semibold text-center">
+                  Hurry! Entry window closes soon!
+                </p>
               </div>
             </div>
 
@@ -105,22 +108,22 @@ export default function RockPaperScissorsGame() {
                 <p className="text-center text-sm text-muted-foreground">
                   Choose your move to enter this round
                 </p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-4">
                   {([0, 1, 2] as GameChoice[]).map((choice) => (
                     <Button
                       key={choice}
                       variant={selectedChoice === choice ? "default" : "outline"}
                       size="lg"
-                      className={`h-24 flex flex-col gap-2 text-lg transition-all duration-300 hover:scale-110 transform ${
+                      className={`h-28 flex flex-col gap-3 text-lg transition-all duration-300 hover:scale-110 transform ${
                         selectedChoice === choice
-                          ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 text-white shadow-2xl border-0"
-                          : "hover:bg-gradient-to-br hover:from-cyan-50 hover:to-purple-50 border-2 hover:border-cyan-400 hover:shadow-lg"
+                          ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 text-white shadow-2xl border-0 animate-pulse"
+                          : "hover:bg-gradient-to-br hover:from-cyan-50 hover:via-blue-50 hover:to-purple-50 border-3 border-cyan-300 hover:border-cyan-500 hover:shadow-xl bg-gradient-to-br from-white to-blue-50"
                       }`}
                       onClick={() => handleChoiceSelect(choice)}
                       disabled={isSubmitting || isConfirming}
                     >
-                      <span className="text-3xl">{getChoiceEmoji(choice)}</span>
-                      <span className="text-sm font-semibold">{getChoiceName(choice)}</span>
+                      <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
+                      <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
                     </Button>
                   ))}
                 </div>
@@ -143,23 +146,23 @@ export default function RockPaperScissorsGame() {
       case "waiting":
         return (
           <div className="text-center space-y-4">
-            <Badge variant="secondary" className="bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 text-white px-4 py-2 shadow-lg">
+            <Badge variant="secondary" className="bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 text-white px-6 py-2 shadow-lg text-lg animate-pulse">
               ⏳ Next Round Coming
             </Badge>
-            <div className="bg-gradient-to-r from-blue-100 to-purple-100 border border-purple-300 rounded-lg p-4">
-              <div className="flex items-center justify-center gap-2 text-purple-700 font-semibold mb-2">
-                <Clock className="w-5 h-5 text-indigo-600" />
-                <span className="text-xl">Entry opens in: {formatTimeRemaining(timeRemaining)}</span>
+            <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 border-2 border-purple-400 rounded-xl p-5 shadow-lg">
+              <div className="flex items-center justify-center gap-3 text-purple-800 font-bold mb-3">
+                <Clock className="w-7 h-7 text-indigo-700 animate-spin" style={{ animationDuration: '3s' }} />
+                <span className="text-2xl tracking-wide">Entry opens in: {formatTimeRemaining(timeRemaining)}</span>
               </div>
               <Progress
                 value={100 - ((timeRemaining / (6 * 60 * 60 * 1000)) * 100)}
-                className="h-3 mb-2"
+                className="h-4 mb-3"
                 style={{
                   background: 'linear-gradient(to right, #8b5cf6, #ec4899)'
                 }}
               />
-              <p className="text-sm text-purple-600 font-medium">
-                Get ready for the next round!
+              <p className="text-sm text-purple-700 font-semibold">
+                Get ready for the next round! Set your alarms!
               </p>
             </div>
           </div>
@@ -227,7 +230,7 @@ export default function RockPaperScissorsGame() {
   }
 
   return (
-    <div className="w-[400px] mx-auto py-8 px-4 min-h-screen space-y-6">
+    <div className="w-[400px] mx-auto py-8 px-4 min-h-screen space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
       {/* Winner Notification */}
       {showWinnerNotification && (
         <Card className="bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 border-0 shadow-2xl">
@@ -252,31 +255,37 @@ export default function RockPaperScissorsGame() {
       )}
 
       {/* Header */}
-      <div className="text-center space-y-3">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-pulse">
+      <div className="text-center space-y-4 bg-gradient-to-br from-cyan-50 via-blue-50 to-purple-50 rounded-2xl p-6 border-2 border-cyan-200 shadow-xl">
+        <h1 className="text-5xl font-extrabold bg-gradient-to-r from-cyan-400 via-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-pulse drop-shadow-lg">
           🪨📄✂️ Rock Paper Scissors
         </h1>
-        <p className="text-base text-muted-foreground font-medium">
+        <p className="text-lg text-slate-700 font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
           Rounds every 6 hours • 15-minute entry window
         </p>
+        <div className="flex items-center justify-center gap-2 text-sm text-blue-600 font-semibold">
+          <Trophy className="w-4 h-4 text-yellow-500" />
+          <span>Play smart, win big!</span>
+        </div>
       </div>
 
       {/* Current Round Info */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center justify-between">
-            <span>Round #{currentRound.id}</span>
+      <Card className="border-2 border-blue-200 shadow-xl bg-gradient-to-br from-white via-blue-50 to-purple-50">
+        <CardHeader className="pb-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-t-lg border-b-2 border-blue-200">
+          <CardTitle className="text-xl font-bold flex items-center justify-between">
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Round #{currentRound.id}
+            </span>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleShare}
-              className="h-8 w-8 p-0"
+              className="h-9 w-9 p-0 bg-gradient-to-r from-cyan-400 to-blue-500 text-white hover:from-cyan-500 hover:to-blue-600 rounded-full shadow-lg"
             >
               <Share2 className="w-4 h-4" />
             </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-6">
           {/* Prize Pool & Stats */}
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center p-4 rounded-xl bg-gradient-to-br from-emerald-100 via-green-100 to-lime-100 border-2 border-emerald-300 shadow-lg">
@@ -304,11 +313,11 @@ export default function RockPaperScissorsGame() {
 
       {/* Player Stats */}
       {context?.user && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Your Stats</CardTitle>
+        <Card className="border-2 border-emerald-200 shadow-xl bg-gradient-to-br from-white via-emerald-50 to-green-50">
+          <CardHeader className="pb-3 bg-gradient-to-r from-emerald-100 to-green-100 rounded-t-lg border-b-2 border-emerald-200">
+            <CardTitle className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">Your Stats</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="p-4 rounded-xl bg-gradient-to-br from-slate-100 via-gray-100 to-zinc-100 border-2 border-slate-300 shadow-lg">
                 <p className="text-slate-600 font-medium flex items-center gap-1 mb-1">
@@ -346,14 +355,14 @@ export default function RockPaperScissorsGame() {
       )}
 
       {/* Leaderboard */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Trophy className="w-5 h-5" />
-            Leaderboard
+      <Card className="border-2 border-yellow-200 shadow-xl bg-gradient-to-br from-white via-yellow-50 to-orange-50">
+        <CardHeader className="pb-3 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-t-lg border-b-2 border-yellow-200">
+          <CardTitle className="text-xl font-bold flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-yellow-600" />
+            <span className="bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">Leaderboard</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <div className="space-y-3">
             {leaderboard.slice(0, 5).map((player, index) => (
               <div key={player.address} className="flex items-center justify-between">
@@ -374,11 +383,11 @@ export default function RockPaperScissorsGame() {
       </Card>
 
       {/* Game Rules */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">How It Works</CardTitle>
+      <Card className="border-2 border-indigo-200 shadow-xl bg-gradient-to-br from-white via-indigo-50 to-purple-50">
+        <CardHeader className="pb-3 bg-gradient-to-r from-indigo-100 to-purple-100 rounded-t-lg border-b-2 border-indigo-200">
+          <CardTitle className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">How It Works</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-3">
+        <CardContent className="text-sm text-slate-700 space-y-3 p-6">
           <div className="flex items-start gap-2">
             <Clock className="w-4 h-4 text-blue-500 mt-0.5" />
             <span>Rounds start every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)</span>
