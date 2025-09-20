@@ -191,14 +191,14 @@ export default function RockPaperScissorsGame() {
                             {paymentPendingChoice === choice ? (
                               isConfirming ? "Entering..." : "Entry Pending"
                             ) : (
-                              "Enter $1 USDC"
+                              "Pay $1 USDC"
                             )}
                           </Button>
                         </div>
                       ))}
                     </div>
                     <p className="text-center text-xs text-muted-foreground">
-                      Entry fee: {formatUSDC(ENTRY_COST)} USDC
+                      One payment of {formatUSDC(ENTRY_COST)} USDC enters you in the round. No entry without payment.
                     </p>
                   </div>
                 )}
@@ -484,11 +484,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>Single $1 USDC payment per entry - no pre-authorization needed</span>
+            <span>One-click $1 USDC payment enters you instantly - no pre-authorization</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Automatic distribution: $0.91 to prize pool, $0.09 platform fee</span>
+            <span>Automatic split: $0.91 to prize pool, $0.09 platform fee</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
