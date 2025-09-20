@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from "wagmi";
 import { base } from "wagmi/chains";
 import { parseEther, formatEther } from "viem";
+import { useMiniAppSdk } from "./use-miniapp-sdk";
 
 export type GameChoice = 0 | 1 | 2; // 0=Rock, 1=Paper, 2=Scissors
 export type GameState = "entry" | "waiting" | "complete";
@@ -92,6 +93,7 @@ const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // B
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
+  const { context } = useMiniAppSdk();
   const [currentRound, setCurrentRound] = useState<GameRound | null>(null);
   const [playerChoice, setPlayerChoice] = useState<GameChoice | null>(null);
   const [gameState, setGameState] = useState<GameState>("waiting");
@@ -108,11 +110,72 @@ export function useRockPaperScissors() {
     wins: number;
     totalWinnings: string;
   }>>([]);
+  const [playerEntries, setPlayerEntries] = useState<Map<string, Set<number>>>(new Map());
+  const [winners, setWinners] = useState<Map<number, string[]>>(new Map()); // roundId -> farcasterIds
 
   const { writeContract, data: txHash, isPending: isSubmitting } = useWriteContract();
   const { isLoading: isConfirming } = useWaitForTransactionReceipt({
     hash: txHash,
   });
+
+  // Check if current Farcaster user has already entered this round
+  const hasUserEnteredRound = useCallback((roundId: number): boolean => {
+    if (!context?.user?.fid) return false;
+    const userFid = context.user.fid.toString();
+    const userRoundEntries = playerEntries.get(userFid);
+    return userRoundEntries?.has(roundId) ?? false;
+  }, [context?.user?.fid, playerEntries]);
+
+  // Add entry for current user and round
+  const addUserEntry = useCallback((roundId: number) => {
+    if (!context?.user?.fid) return;
+    const userFid = context.user.fid.toString();
+    const updatedEntries = new Map(playerEntries);
+    const userRoundEntries = updatedEntries.get(userFid) ?? new Set<number>();
+    userRoundEntries.add(roundId);
+    updatedEntries.set(userFid, userRoundEntries);
+    setPlayerEntries(updatedEntries);
+
+    // Store in localStorage for persistence
+    const entriesData = Array.from(updatedEntries.entries()).map(([fid, rounds]) => [
+      fid,
+      Array.from(rounds)
+    ]);
+    localStorage.setItem('farcasterGameEntries', JSON.stringify(entriesData));
+  }, [context?.user?.fid, playerEntries]);
+
+  // Load entries from localStorage on mount
+  useEffect(() => {
+    const savedEntries = localStorage.getItem('farcasterGameEntries');
+    if (savedEntries) {
+      try {
+        const entriesData = JSON.parse(savedEntries);
+        const entriesMap = new Map<string, Set<number>>();
+        entriesData.forEach(([fid, rounds]: [string, number[]]) => {
+          entriesMap.set(fid, new Set(rounds));
+        });
+        setPlayerEntries(entriesMap);
+      } catch (error) {
+        console.error('Failed to load game entries:', error);
+      }
+    }
+
+    // Load winners from localStorage
+    const savedWinners = localStorage.getItem('farcasterGameWinners');
+    if (savedWinners) {
+      try {
+        const winnersData = JSON.parse(savedWinners);
+        const winnersMap = new Map<number, string[]>();
+        winnersData.forEach(([roundId, fids]: [number, string[]]) => {
+          winnersMap.set(roundId, fids);
+        });
+        setWinners(winnersMap);
+      } catch (error) {
+        console.error('Failed to load game winners:', error);
+      }
+    }
+  }, []);
+
 
   // Calculate next round start time (15-minute rounds)
   const getNextRoundStartTime = useCallback(() => {
@@ -169,6 +232,101 @@ export function useRockPaperScissors() {
     };
   }, []);
 
+  // Calculate live participant count and prize pool based on current entries
+  const getLiveGameData = useCallback((roundId: number) => {
+    // Count unique FIDs who entered this round
+    const uniqueParticipants = Array.from(playerEntries.values()).reduce(
+      (count, roundSet) => count + (roundSet.has(roundId) ? 1 : 0),
+      0
+    );
+
+    // Calculate total pot based on entries (1 USDC per entry)
+    const totalPot = BigInt(uniqueParticipants) * ENTRY_COST;
+    const platformFee = (totalPot * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100);
+    const prizePoolAfterFee = totalPot - platformFee;
+
+    return {
+      playerEntries: Math.max(uniqueParticipants, 1), // At least show 1 for demo
+      prizePool: prizePoolAfterFee > 0 ? prizePoolAfterFee : ENTRY_COST // Minimum prize pool
+    };
+  }, [playerEntries]);
+
+  const formatUSDC = (amount: bigint): string => {
+    // USDC has 6 decimals
+    const divisor = BigInt(1000000);
+    const whole = amount / divisor;
+    const fractional = amount % divisor;
+
+    if (fractional === BigInt(0)) {
+      return whole.toString();
+    }
+
+    // Format fractional part with up to 6 decimal places, removing trailing zeros
+    const fractionalStr = fractional.toString().padStart(6, '0');
+    const trimmedFractional = fractionalStr.replace(/0+$/, '');
+
+    if (trimmedFractional === '') {
+      return whole.toString();
+    }
+
+    return `${whole}.${trimmedFractional}`;
+  };
+
+  // Generate winners for completed rounds and update leaderboard
+  const updateWinnersAndLeaderboard = useCallback((roundId: number, winningChoice: GameChoice) => {
+    // Find all players who entered this round with the winning choice
+    // For demo purposes, we'll simulate this by randomly selecting some entries
+    const allEntrants = Array.from(playerEntries.entries())
+      .filter(([_, rounds]) => rounds.has(roundId))
+      .map(([fid]) => fid);
+
+    if (allEntrants.length === 0) return;
+
+    // Simulate winner selection (in production, this would be determined by blockchain)
+    const numWinners = Math.max(1, Math.floor(allEntrants.length * 0.3)); // ~30% win rate
+    const roundWinners = allEntrants
+      .sort(() => Math.random() - 0.5)
+      .slice(0, numWinners);
+
+    // Update winners map
+    const updatedWinners = new Map(winners);
+    updatedWinners.set(roundId, roundWinners);
+    setWinners(updatedWinners);
+
+    // Save to localStorage
+    const winnersData = Array.from(updatedWinners.entries());
+    localStorage.setItem('farcasterGameWinners', JSON.stringify(winnersData));
+
+    // Update leaderboard with actual winner data
+    const winnerStats = new Map<string, { wins: number; totalWinnings: bigint }>();
+
+    // Count wins and calculate winnings for each player
+    updatedWinners.forEach((roundWinners, completedRoundId) => {
+      const liveData = getLiveGameData(completedRoundId);
+      const winningsPerPlayer = liveData.prizePool / BigInt(roundWinners.length || 1);
+
+      roundWinners.forEach(fid => {
+        const current = winnerStats.get(fid) || { wins: 0, totalWinnings: BigInt(0) };
+        winnerStats.set(fid, {
+          wins: current.wins + 1,
+          totalWinnings: current.totalWinnings + winningsPerPlayer
+        });
+      });
+    });
+
+    // Convert to leaderboard format and sort by wins
+    const newLeaderboard = Array.from(winnerStats.entries())
+      .map(([fid, stats]) => ({
+        address: `FID ${fid}`,
+        wins: stats.wins,
+        totalWinnings: formatUSDC(stats.totalWinnings)
+      }))
+      .sort((a, b) => b.wins - a.wins)
+      .slice(0, 10);
+
+    setLeaderboard(newLeaderboard);
+  }, [playerEntries, winners, getLiveGameData, formatUSDC]);
+
   // Update game state every second
   useEffect(() => {
     const updateGameState = () => {
@@ -176,50 +334,80 @@ export function useRockPaperScissors() {
       setGameState(roundInfo.state);
       setTimeRemaining(roundInfo.timeRemaining);
 
-      // Mock current round data with 9% fee calculation
-      const totalPot = parseEther("150");
-      const platformFee = (totalPot * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100);
-      const prizePoolAfterFee = totalPot - platformFee;
+      const liveData = getLiveGameData(roundInfo.id);
+
+      const isComplete = roundInfo.state === "complete";
+      const chainMove = isComplete ? 1 : undefined; // Mock chain move (Paper)
+      const winningChoice = isComplete ? 2 : undefined; // Mock winning choice (Scissors beats Paper)
 
       setCurrentRound({
         id: roundInfo.id,
         startTime: roundInfo.startTime,
         entryEndTime: roundInfo.entryEndTime,
-        prizePool: prizePoolAfterFee, // Prize pool after 9% platform fee
-        playerEntries: 42, // Mock player count
-        isComplete: roundInfo.state === "complete",
-        chainMove: roundInfo.state === "complete" ? 1 : undefined, // Mock chain move (Paper)
-        winningChoice: roundInfo.state === "complete" ? 2 : undefined // Mock winning choice (Scissors beats Paper)
+        prizePool: liveData.prizePool,
+        playerEntries: liveData.playerEntries,
+        isComplete,
+        chainMove,
+        winningChoice
       });
+
+      // Generate winners when round completes
+      if (isComplete && winningChoice !== undefined && !winners.has(roundInfo.id)) {
+        updateWinnersAndLeaderboard(roundInfo.id, winningChoice);
+      }
+
+      // Check if player has choice for current round
+      if (hasUserEnteredRound(roundInfo.id) && !playerChoice) {
+        setPlayerChoice(0); // Mock choice - in production, retrieve from storage
+      } else if (!hasUserEnteredRound(roundInfo.id) && playerChoice) {
+        setPlayerChoice(null);
+      }
     };
 
     updateGameState();
     const interval = setInterval(updateGameState, 1000);
     return () => clearInterval(interval);
-  }, [getCurrentRoundInfo]);
+  }, [getCurrentRoundInfo, getLiveGameData, hasUserEnteredRound, playerChoice, winners, updateWinnersAndLeaderboard]);
 
-  // Mock player stats and leaderboard
+  // Mock player stats - in production, calculate from actual data
   useEffect(() => {
-    if (address) {
-      setPlayerStats({
-        totalGames: 12,
-        wins: 8,
-        losses: 4,
-        totalWinnings: parseEther("24.5"),
-        currentStreak: 3
+    if (address && context?.user?.fid) {
+      const userFid = context.user.fid.toString();
+
+      // Calculate actual stats from winners data
+      let wins = 0;
+      let totalWinnings = BigInt(0);
+
+      winners.forEach((roundWinners, roundId) => {
+        if (roundWinners.includes(userFid)) {
+          wins += 1;
+          const liveData = getLiveGameData(roundId);
+          totalWinnings += liveData.prizePool / BigInt(roundWinners.length);
+        }
       });
 
-      setLeaderboard([
-        { address: "0x1234...5678", wins: 25, totalWinnings: "67.8" },
-        { address: "0x9876...4321", wins: 22, totalWinnings: "56.2" },
-        { address: "0x5555...9999", wins: 18, totalWinnings: "41.9" },
-        { address: address.slice(0, 6) + "..." + address.slice(-4), wins: 8, totalWinnings: "24.5" },
-      ]);
+      const totalGames = Array.from(playerEntries.values()).reduce(
+        (total, rounds) => total + rounds.size, 0
+      );
+
+      setPlayerStats({
+        totalGames,
+        wins,
+        losses: totalGames - wins,
+        totalWinnings,
+        currentStreak: wins > 0 ? Math.floor(Math.random() * wins) + 1 : 0 // Mock streak
+      });
     }
-  }, [address]);
+  }, [address, context?.user?.fid, winners, playerEntries, getLiveGameData]);
 
   const enterGame = useCallback(async (choice: GameChoice) => {
-    if (!currentRound || gameState !== "entry" || !address) return;
+    if (!currentRound || gameState !== "entry" || !address || !context?.user?.fid) return;
+
+    // Check if user has already entered this round
+    if (hasUserEnteredRound(currentRound.id)) {
+      console.log("User has already entered this round");
+      return;
+    }
 
     try {
       // Transfer 1 USDC to the game contract to enter
@@ -230,12 +418,13 @@ export function useRockPaperScissors() {
         args: [CONTRACT_ADDRESS, ENTRY_COST]
       });
 
-      // Set player choice after initiating transaction
+      // Set player choice and record entry
       setPlayerChoice(choice);
+      addUserEntry(currentRound.id);
     } catch (error) {
       console.error("Failed to enter game:", error);
     }
-  }, [currentRound, gameState, address, writeContract]);
+  }, [currentRound, gameState, address, context?.user?.fid, hasUserEnteredRound, addUserEntry, writeContract]);
 
   const claimWinnings = useCallback(async (roundId: number) => {
     try {
@@ -284,27 +473,6 @@ export function useRockPaperScissors() {
     }
   };
 
-  const formatUSDC = (amount: bigint): string => {
-    // USDC has 6 decimals
-    const divisor = BigInt(1000000);
-    const whole = amount / divisor;
-    const fractional = amount % divisor;
-
-    if (fractional === BigInt(0)) {
-      return whole.toString();
-    }
-
-    // Format fractional part with up to 6 decimal places, removing trailing zeros
-    const fractionalStr = fractional.toString().padStart(6, '0');
-    const trimmedFractional = fractionalStr.replace(/0+$/, '');
-
-    if (trimmedFractional === '') {
-      return whole.toString();
-    }
-
-    return `${whole}.${trimmedFractional}`;
-  };
-
   return {
     // Game state
     currentRound,
@@ -323,6 +491,9 @@ export function useRockPaperScissors() {
     // Stats
     playerStats,
     leaderboard,
+
+    // Entry restrictions
+    hasUserEnteredRound,
 
     // Utilities
     getChoiceName,

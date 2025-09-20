@@ -38,6 +38,7 @@ export default function RockPaperScissorsGame() {
     isConfirming,
     playerStats,
     leaderboard,
+    hasUserEnteredRound,
     getChoiceName,
     getChoiceEmoji,
     formatTimeRemaining,
@@ -82,7 +83,13 @@ export default function RockPaperScissorsGame() {
   }, [currentRound]);
 
   const handleChoiceSelect = async (choice: GameChoice) => {
-    if (isSubmitting || isConfirming || selectedChoice !== null) return;
+    if (isSubmitting || isConfirming || selectedChoice !== null || !currentRound) return;
+
+    // Check if user already entered this round
+    if (hasUserEnteredRound(currentRound.id)) {
+      console.log("User has already entered this round");
+      return;
+    }
 
     // Explicitly handle all choice values including 0 (rock)
     console.log(`Player selected choice: ${choice} (${getChoiceName(choice)})`);
@@ -136,31 +143,46 @@ export default function RockPaperScissorsGame() {
 
             {!playerChoice ? (
               <div className="space-y-4">
-                <p className="text-center text-sm text-muted-foreground">
-                  Choose your move to enter this round
-                </p>
-                <div className="grid grid-cols-3 gap-4">
-                  {([0, 1, 2] as GameChoice[]).map((choice) => (
-                    <Button
-                      key={`choice-${choice}`}
-                      variant={(selectedChoice !== null && selectedChoice === choice) ? "default" : "outline"}
-                      size="lg"
-                      className={`h-28 flex flex-col gap-3 text-lg transition-all duration-200 hover:scale-105 transform ${
-                        (selectedChoice !== null && selectedChoice === choice)
-                          ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 text-white shadow-2xl border-0"
-                          : "hover:bg-gradient-to-br hover:from-cyan-50 hover:via-blue-50 hover:to-purple-50 border-2 border-cyan-300 hover:border-cyan-500 hover:shadow-xl bg-gradient-to-br from-white to-blue-50"
-                      }`}
-                      onClick={() => handleChoiceSelect(choice)}
-                      disabled={isSubmitting || isConfirming || selectedChoice !== null}
-                    >
-                      <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
-                      <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-center text-xs text-muted-foreground">
-                  Entry fee: {formatUSDC(ENTRY_COST)} USDC
-                </p>
+                {currentRound && hasUserEnteredRound(currentRound.id) ? (
+                  <div className="text-center space-y-3">
+                    <div className="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 border-2 border-blue-300 rounded-xl p-4 shadow-lg">
+                      <p className="text-blue-800 font-semibold text-lg mb-2">
+                        ✓ Already Entered This Round
+                      </p>
+                      <p className="text-sm text-blue-600">
+                        You can only enter once per round. Wait for the next round to play again.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-center text-sm text-muted-foreground">
+                      Choose your move to enter this round
+                    </p>
+                    <div className="grid grid-cols-3 gap-4">
+                      {([0, 1, 2] as GameChoice[]).map((choice) => (
+                        <Button
+                          key={`choice-${choice}`}
+                          variant={(selectedChoice !== null && selectedChoice === choice) ? "default" : "outline"}
+                          size="lg"
+                          className={`h-28 flex flex-col gap-3 text-lg transition-all duration-200 hover:scale-105 transform ${
+                            (selectedChoice !== null && selectedChoice === choice)
+                              ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 text-white shadow-2xl border-0"
+                              : "hover:bg-gradient-to-br hover:from-cyan-50 hover:via-blue-50 hover:to-purple-50 border-2 border-cyan-300 hover:border-cyan-500 hover:shadow-xl bg-gradient-to-br from-white to-blue-50"
+                          }`}
+                          onClick={() => handleChoiceSelect(choice)}
+                          disabled={isSubmitting || isConfirming || selectedChoice !== null}
+                        >
+                          <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
+                          <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-center text-xs text-muted-foreground">
+                      Entry fee: {formatUSDC(ENTRY_COST)} USDC
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center space-y-2">
