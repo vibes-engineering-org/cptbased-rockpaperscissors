@@ -26,7 +26,7 @@ export default async function Image() {
           overflow: "hidden",
         }}
       >
-        {/* Background gradient with Farcaster purple and electric blue */}
+        {/* Background gradient with game-inspired colors */}
         <div
           style={{
             position: "absolute",
@@ -34,12 +34,12 @@ export default async function Image() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "linear-gradient(135deg, #8A63D2 0%, #1E90FF 100%)",
+            background: "linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 50%, #45B7D1 100%)",
             opacity: 0.9,
           }}
         />
 
-        {/* Subtle pattern overlay for depth */}
+        {/* Subtle pattern overlay with game elements */}
         <div
           style={{
             position: "absolute",
@@ -48,7 +48,7 @@ export default async function Image() {
             right: 0,
             bottom: 0,
             backgroundImage:
-              "radial-gradient(circle at 20% 80%, rgba(138, 99, 210, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(30, 144, 255, 0.4) 0%, transparent 50%)",
+              "radial-gradient(circle at 20% 80%, rgba(255, 107, 107, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(78, 205, 196, 0.4) 0%, transparent 50%)",
           }}
         />
 
@@ -113,6 +113,97 @@ export default async function Image() {
                   objectFit: "cover",
                 }}
               />
+            </div>
+          </div>
+
+          {/* Game symbols */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "32px",
+              marginBottom: "32px",
+            }}
+          >
+            {/* Rock */}
+            <div
+              style={{
+                width: "80px",
+                height: "80px",
+                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "54px",
+                fontWeight: "900",
+                color: "#FF6B6B",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+                border: "4px solid rgba(255, 255, 255, 0.4)",
+              }}
+            >
+              R
+            </div>
+            {/* VS Text */}
+            <div
+              style={{
+                fontSize: "32px",
+                fontWeight: "900",
+                color: "#ffffff",
+                textShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
+              }}
+            >
+              VS
+            </div>
+            {/* Paper */}
+            <div
+              style={{
+                width: "80px",
+                height: "80px",
+                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "54px",
+                fontWeight: "900",
+                color: "#4ECDC4",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+                border: "4px solid rgba(255, 255, 255, 0.4)",
+              }}
+            >
+              P
+            </div>
+            {/* VS Text */}
+            <div
+              style={{
+                fontSize: "32px",
+                fontWeight: "900",
+                color: "#ffffff",
+                textShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
+              }}
+            >
+              VS
+            </div>
+            {/* Scissors */}
+            <div
+              style={{
+                width: "80px",
+                height: "80px",
+                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "54px",
+                fontWeight: "900",
+                color: "#45B7D1",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+                border: "4px solid rgba(255, 255, 255, 0.4)",
+              }}
+            >
+              S
             </div>
           </div>
 
