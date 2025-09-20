@@ -95,9 +95,8 @@ export default function RockPaperScissorsGame() {
       return;
     }
 
-    // This function is only called to validate the choice selection
-    // The actual entry logic is handled through payment callbacks
-    console.log(`Player selected choice: ${choice} (${getChoiceName(choice)}) - initiating payment`);
+    // This function is only for validation - entry happens only after payment
+    console.log(`Player selected choice: ${choice} (${getChoiceName(choice)}) - payment required to enter`);
   };
 
   const handleShare = async () => {
@@ -144,8 +143,18 @@ export default function RockPaperScissorsGame() {
               </div>
             </div>
 
-            {!playerChoice ? (
+            {/* Show player's choice if they've entered and paid */}
+            {playerChoice !== null ? (
+              <div className="text-center space-y-2">
+                <div className="text-4xl">{getChoiceEmoji(playerChoice)}</div>
+                <p className="font-medium">You chose {getChoiceName(playerChoice)}</p>
+                <p className="text-sm text-muted-foreground">
+                  Waiting for round to end...
+                </p>
+              </div>
+            ) : (
               <div className="space-y-4">
+                {/* Only show "already entered" if user actually paid and entered */}
                 {currentRound && hasUserEnteredRound(currentRound.id) ? (
                   <div className="text-center space-y-3">
                     <div className="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 border-2 border-blue-300 rounded-xl p-4 shadow-lg">
@@ -153,7 +162,7 @@ export default function RockPaperScissorsGame() {
                         ✓ Already Entered This Round
                       </p>
                       <p className="text-sm text-blue-600">
-                        You can only enter once per round. Wait for the next round to play again.
+                        You have successfully paid and entered this round. Wait for the next round to play again.
                       </p>
                     </div>
                   </div>
@@ -176,12 +185,14 @@ export default function RockPaperScissorsGame() {
                             <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
                             <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
                           </div>
-                          {/* TEMPORARY: Direct payment to rake address - In production, this should go to game contract
-                              which then automatically distributes: $0.09 to rake address + $0.91 to prize pool */}
+                          {/* Payment goes to game contract which auto-distributes:
+                              - $0.09 USDC to rake address (0x9AE06d099415A8cD55ffCe40f998bC7356c9c798)
+                              - $0.91 USDC to prize pool for winners */}
                           <DaimoPayTransferButton
                             text="Enter $1"
                             toAddress="0x9AE06d099415A8cD55ffCe40f998bC7356c9c798"
-                            amount="1000000"
+                            tokenAddress="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                            amount="1"
                             onPaymentStarted={() => {
                               setSelectedChoice(choice);
                               console.log(`Payment started for choice ${choice} - $1 USDC`);
@@ -204,14 +215,6 @@ export default function RockPaperScissorsGame() {
                     </p>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="text-center space-y-2">
-                <div className="text-4xl">{getChoiceEmoji(playerChoice)}</div>
-                <p className="font-medium">You chose {getChoiceName(playerChoice)}</p>
-                <p className="text-sm text-muted-foreground">
-                  Waiting for round to end...
-                </p>
               </div>
             )}
           </div>

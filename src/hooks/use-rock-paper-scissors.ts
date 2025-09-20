@@ -108,6 +108,9 @@ const USDC_CONTRACT_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // B
 // 4. All operations happen atomically - if any step fails, the entire transaction reverts
 // 5. Users cannot enter twice for the same round - contract should enforce this
 // 6. Only successful payment completion should result in a recorded entry
+//
+// TEMPORARY: Since we don't have the contract deployed, payments go directly to rake address
+// In production, this will be replaced with proper contract interaction
 
 export function useRockPaperScissors() {
   const { address } = useAccount();
