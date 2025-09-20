@@ -11,6 +11,21 @@ import { Separator } from "~/components/ui/separator";
 import { Trophy, Clock, Users, DollarSign, Share2, Shield, Zap, Bell } from "lucide-react";
 import { formatEther } from "viem";
 
+// Client-only component for time-sensitive displays
+function ClientOnlyTimeDisplay({ children }: { children: React.ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return <div className="animate-pulse">Loading...</div>;
+  }
+
+  return <>{children}</>;
+}
+
 export default function RockPaperScissorsGame() {
   const {
     currentRound,
@@ -86,17 +101,21 @@ export default function RockPaperScissorsGame() {
                 🎮 Entry Window Open
               </Badge>
               <div className="bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 border-2 border-orange-400 rounded-xl p-4 shadow-lg">
-                <div className="flex items-center justify-center gap-3 text-orange-800 font-bold mb-3">
-                  <Clock className="w-6 h-6 text-red-600 animate-pulse" />
-                  <span className="text-2xl tracking-wide">Closing in: {formatTimeRemaining(timeRemaining)}</span>
-                </div>
-                <Progress
-                  value={(timeRemaining / (15 * 60 * 1000)) * 100}
-                  className="h-3 mb-2"
-                  style={{
-                    background: 'linear-gradient(to right, #f97316, #dc2626)'
-                  }}
-                />
+                <ClientOnlyTimeDisplay>
+                  <div className="flex items-center justify-center gap-3 text-orange-800 font-bold mb-3">
+                    <Clock className="w-6 h-6 text-red-600 animate-pulse" />
+                    <span className="text-2xl tracking-wide">Closing in: {formatTimeRemaining(timeRemaining)}</span>
+                  </div>
+                </ClientOnlyTimeDisplay>
+                <ClientOnlyTimeDisplay>
+                  <Progress
+                    value={(timeRemaining / (15 * 60 * 1000)) * 100}
+                    className="h-3 mb-2"
+                    style={{
+                      background: 'linear-gradient(to right, #f97316, #dc2626)'
+                    }}
+                  />
+                </ClientOnlyTimeDisplay>
                 <p className="text-sm text-orange-600 font-semibold text-center">
                   Hurry! Entry window closes soon!
                 </p>
@@ -150,17 +169,21 @@ export default function RockPaperScissorsGame() {
               ⏳ Next Round Coming
             </Badge>
             <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 border-2 border-purple-400 rounded-xl p-5 shadow-lg">
-              <div className="flex items-center justify-center gap-3 text-purple-800 font-bold mb-3">
-                <Clock className="w-7 h-7 text-indigo-700 animate-spin" style={{ animationDuration: '3s' }} />
-                <span className="text-2xl tracking-wide">Entry opens in: {formatTimeRemaining(timeRemaining)}</span>
-              </div>
-              <Progress
-                value={100 - ((timeRemaining / (6 * 60 * 60 * 1000)) * 100)}
-                className="h-4 mb-3"
-                style={{
-                  background: 'linear-gradient(to right, #8b5cf6, #ec4899)'
-                }}
-              />
+              <ClientOnlyTimeDisplay>
+                <div className="flex items-center justify-center gap-3 text-purple-800 font-bold mb-3">
+                  <Clock className="w-7 h-7 text-indigo-700 animate-spin" style={{ animationDuration: '3s' }} />
+                  <span className="text-2xl tracking-wide">Entry opens in: {formatTimeRemaining(timeRemaining)}</span>
+                </div>
+              </ClientOnlyTimeDisplay>
+              <ClientOnlyTimeDisplay>
+                <Progress
+                  value={100 - ((timeRemaining / (6 * 60 * 60 * 1000)) * 100)}
+                  className="h-4 mb-3"
+                  style={{
+                    background: 'linear-gradient(to right, #8b5cf6, #ec4899)'
+                  }}
+                />
+              </ClientOnlyTimeDisplay>
               <p className="text-sm text-purple-700 font-semibold">
                 Get ready for the next round! Set your alarms!
               </p>

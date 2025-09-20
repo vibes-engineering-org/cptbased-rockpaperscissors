@@ -26,7 +26,7 @@ export default async function Image() {
           overflow: "hidden",
         }}
       >
-        {/* Background gradient with game-inspired colors */}
+        {/* Background gradient with app-matching colors */}
         <div
           style={{
             position: "absolute",
@@ -34,8 +34,8 @@ export default async function Image() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 50%, #45B7D1 100%)",
-            opacity: 0.9,
+            background: "linear-gradient(135deg, #0ea5e9 0%, #6366f1 25%, #8b5cf6 50%, #d946ef 75%, #ec4899 100%)",
+            opacity: 0.95,
           }}
         />
 
@@ -122,88 +122,60 @@ export default async function Image() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "32px",
+              gap: "24px",
               marginBottom: "32px",
             }}
           >
             {/* Rock */}
             <div
               style={{
-                width: "80px",
-                height: "80px",
-                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                width: "90px",
+                height: "90px",
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
                 borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "54px",
-                fontWeight: "900",
-                color: "#FF6B6B",
-                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-                border: "4px solid rgba(255, 255, 255, 0.4)",
+                fontSize: "60px",
+                boxShadow: "0 12px 40px rgba(0, 0, 0, 0.25)",
+                border: "4px solid rgba(255, 255, 255, 0.8)",
               }}
             >
-              R
-            </div>
-            {/* VS Text */}
-            <div
-              style={{
-                fontSize: "32px",
-                fontWeight: "900",
-                color: "#ffffff",
-                textShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
-              }}
-            >
-              VS
+              🪨
             </div>
             {/* Paper */}
             <div
               style={{
-                width: "80px",
-                height: "80px",
-                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                width: "90px",
+                height: "90px",
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
                 borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "54px",
-                fontWeight: "900",
-                color: "#4ECDC4",
-                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-                border: "4px solid rgba(255, 255, 255, 0.4)",
+                fontSize: "60px",
+                boxShadow: "0 12px 40px rgba(0, 0, 0, 0.25)",
+                border: "4px solid rgba(255, 255, 255, 0.8)",
               }}
             >
-              P
-            </div>
-            {/* VS Text */}
-            <div
-              style={{
-                fontSize: "32px",
-                fontWeight: "900",
-                color: "#ffffff",
-                textShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
-              }}
-            >
-              VS
+              📄
             </div>
             {/* Scissors */}
             <div
               style={{
-                width: "80px",
-                height: "80px",
-                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                width: "90px",
+                height: "90px",
+                backgroundColor: "rgba(255, 255, 255, 0.95)",
                 borderRadius: "50%",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "54px",
-                fontWeight: "900",
-                color: "#45B7D1",
-                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-                border: "4px solid rgba(255, 255, 255, 0.4)",
+                fontSize: "60px",
+                boxShadow: "0 12px 40px rgba(0, 0, 0, 0.25)",
+                border: "4px solid rgba(255, 255, 255, 0.8)",
               }}
             >
-              S
+              ✂️
             </div>
           </div>
 
