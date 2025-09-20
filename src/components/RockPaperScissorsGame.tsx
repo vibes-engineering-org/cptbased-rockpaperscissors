@@ -48,6 +48,13 @@ export default function RockPaperScissorsGame() {
   const [selectedChoice, setSelectedChoice] = useState<GameChoice | null>(null);
   const [showWinnerNotification, setShowWinnerNotification] = useState(false);
 
+  // Reset selected choice when round changes
+  useEffect(() => {
+    if (currentRound && !playerChoice) {
+      setSelectedChoice(null);
+    }
+  }, [currentRound?.id, playerChoice]);
+
   // Check for unclaimed winnings when user returns
   useEffect(() => {
     const checkUnclaimedWinnings = () => {
@@ -74,6 +81,7 @@ export default function RockPaperScissorsGame() {
   }, [currentRound]);
 
   const handleChoiceSelect = async (choice: GameChoice) => {
+    if (isSubmitting || isConfirming || selectedChoice !== null) return;
     setSelectedChoice(choice);
     await enterGame(choice);
   };
@@ -109,7 +117,7 @@ export default function RockPaperScissorsGame() {
                 </ClientOnlyTimeDisplay>
                 <ClientOnlyTimeDisplay>
                   <Progress
-                    value={(timeRemaining / (10 * 60 * 1000)) * 100}
+                    value={100 - (timeRemaining / (15 * 60 * 1000)) * 100}
                     className="h-3 mb-2"
                     style={{
                       background: 'linear-gradient(to right, #f97316, #dc2626)'
@@ -133,13 +141,13 @@ export default function RockPaperScissorsGame() {
                       key={choice}
                       variant={selectedChoice === choice ? "default" : "outline"}
                       size="lg"
-                      className={`h-28 flex flex-col gap-3 text-lg transition-all duration-300 hover:scale-110 transform ${
+                      className={`h-28 flex flex-col gap-3 text-lg transition-all duration-200 hover:scale-105 transform ${
                         selectedChoice === choice
-                          ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 text-white shadow-2xl border-0 animate-pulse"
-                          : "hover:bg-gradient-to-br hover:from-cyan-50 hover:via-blue-50 hover:to-purple-50 border-3 border-cyan-300 hover:border-cyan-500 hover:shadow-xl bg-gradient-to-br from-white to-blue-50"
+                          ? "bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 text-white shadow-2xl border-0"
+                          : "hover:bg-gradient-to-br hover:from-cyan-50 hover:via-blue-50 hover:to-purple-50 border-2 border-cyan-300 hover:border-cyan-500 hover:shadow-xl bg-gradient-to-br from-white to-blue-50"
                       }`}
                       onClick={() => handleChoiceSelect(choice)}
-                      disabled={isSubmitting || isConfirming}
+                      disabled={isSubmitting || isConfirming || selectedChoice !== null}
                     >
                       <span className="text-4xl drop-shadow-lg">{getChoiceEmoji(choice)}</span>
                       <span className="text-sm font-bold tracking-wide">{getChoiceName(choice)}</span>
@@ -283,7 +291,7 @@ export default function RockPaperScissorsGame() {
           🪨📄✂️ Rock Paper Scissors
         </h1>
         <p className="text-lg text-slate-700 font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          15-minute rounds • 10-minute entry window
+          15-minute continuous rounds • Always accepting entries
         </p>
         <div className="flex items-center justify-center gap-2 text-sm text-blue-600 font-semibold">
           <Trophy className="w-4 h-4 text-yellow-500" />
@@ -413,15 +421,15 @@ export default function RockPaperScissorsGame() {
         <CardContent className="text-sm text-slate-700 space-y-3 p-6">
           <div className="flex items-start gap-2">
             <Clock className="w-4 h-4 text-blue-500 mt-0.5" />
-            <span>New rounds start every 15 minutes, running continuously</span>
+            <span>New rounds start every 15 minutes, running continuously back-to-back</span>
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>10-minute entry window, 1 USDC per entry</span>
+            <span>15-minute entry window, 1 USDC per entry</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Small platform fee supports ongoing development and features</span>
+            <span>9% platform fee deducted from pot for development and features</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />

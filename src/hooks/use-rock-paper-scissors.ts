@@ -28,8 +28,9 @@ export interface PlayerStats {
 }
 
 const ROUND_DURATION_MINUTES = 15; // 15 minute rounds
-const ENTRY_WINDOW_MINUTES = 10; // 10 minutes to enter, 5 minutes for resolution
+const ENTRY_WINDOW_MINUTES = 15; // 15 minutes to enter (continuous back-to-back rounds)
 const ENTRY_COST = parseEther("1"); // 1 USDC
+const PLATFORM_FEE_PERCENTAGE = 9; // 9% platform fee
 const RAKE_ADDRESS = "0x9AE06d099415A8cD55ffCe40f998bC7356c9c798";
 
 // Mock contract ABI - in production, this would be the actual contract ABI
@@ -116,23 +117,23 @@ export function useRockPaperScissors() {
 
     const roundId = roundsSinceEpoch;
 
-    let state: GameState = "waiting";
-    if (now >= currentStart && now <= entryEndTime) {
-      state = "entry";
-    } else if (now > entryEndTime && now < roundEndTime) {
+    // For continuous rounds, we're always in entry state
+    // except for brief periods when we might show completion
+    let state: GameState = "entry";
+
+    // Check if we're near the end of a round (last 30 seconds for completion display)
+    const timeUntilEnd = roundEndTime - now;
+    if (timeUntilEnd <= 30000 && timeUntilEnd > 0) {
       state = "complete";
-    } else {
-      // We're in the gap before the next round (shouldn't happen with back-to-back rounds)
-      state = "waiting";
     }
 
     let timeRemaining: number;
     if (state === "entry") {
-      timeRemaining = entryEndTime - now;
+      timeRemaining = roundEndTime - now;
     } else if (state === "complete") {
       timeRemaining = roundEndTime - now;
     } else {
-      // Time until next round starts
+      // Time until next round starts (should be minimal for continuous rounds)
       timeRemaining = ((roundsSinceEpoch + 1) * roundDurationMs) - now;
     }
 
@@ -152,12 +153,16 @@ export function useRockPaperScissors() {
       setGameState(roundInfo.state);
       setTimeRemaining(roundInfo.timeRemaining);
 
-      // Mock current round data
+      // Mock current round data with 9% fee calculation
+      const totalPot = parseEther("150");
+      const platformFee = (totalPot * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100);
+      const prizePoolAfterFee = totalPot - platformFee;
+
       setCurrentRound({
         id: roundInfo.id,
         startTime: roundInfo.startTime,
         entryEndTime: roundInfo.entryEndTime,
-        prizePool: parseEther("150"), // Mock prize pool
+        prizePool: prizePoolAfterFee, // Prize pool after 9% platform fee
         playerEntries: 42, // Mock player count
         isComplete: roundInfo.state === "complete",
         chainMove: roundInfo.state === "complete" ? 1 : undefined, // Mock chain move (Paper)
@@ -191,40 +196,40 @@ export function useRockPaperScissors() {
   }, [address]);
 
   const enterGame = useCallback(async (choice: GameChoice) => {
-    if (!currentRound || gameState !== "entry") return;
+    if (!currentRound || gameState !== "entry" || !address) return;
 
     try {
-      // In production, this would call the actual smart contract
-      // writeContract({
-      //   address: CONTRACT_ADDRESS,
-      //   abi: CONTRACT_ABI,
-      //   functionName: "enterGame",
-      //   args: [choice, BigInt(currentRound.id)],
-      //   value: ENTRY_COST
-      // });
+      // Call the actual smart contract to prompt for transaction
+      writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "enterGame",
+        args: [choice, BigInt(currentRound.id)],
+        value: ENTRY_COST
+      });
 
-      // Mock successful entry
+      // Set player choice after initiating transaction
       setPlayerChoice(choice);
     } catch (error) {
       console.error("Failed to enter game:", error);
     }
-  }, [currentRound, gameState]);
+  }, [currentRound, gameState, address, writeContract]);
 
   const claimWinnings = useCallback(async (roundId: number) => {
     try {
-      // In production, this would call the actual smart contract
-      // writeContract({
-      //   address: CONTRACT_ADDRESS,
-      //   abi: CONTRACT_ABI,
-      //   functionName: "claimWinnings",
-      //   args: [BigInt(roundId)]
-      // });
+      // Call the actual smart contract to claim winnings
+      writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "claimWinnings",
+        args: [BigInt(roundId)]
+      });
 
       console.log(`Claiming winnings for round ${roundId}`);
     } catch (error) {
       console.error("Failed to claim winnings:", error);
     }
-  }, []);
+  }, [writeContract]);
 
   const getChoiceName = (choice: GameChoice): string => {
     switch (choice) {
