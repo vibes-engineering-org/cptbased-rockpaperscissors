@@ -91,26 +91,16 @@ contract RockPaperScissorsGame is ReentrancyGuard, Ownable {
 
         uint8 winningChoice = calculateWinningChoice(chainMove);
 
+        // Automatically distribute prizes to winners
+        _distributeWinnings(roundId, winningChoice);
+
         emit RoundCompleted(roundId, chainMove, winningChoice);
     }
 
-    function claimWinnings(uint256 roundId) external nonReentrant {
+    function _distributeWinnings(uint256 roundId, uint8 winningChoice) internal {
         GameRound storage round = rounds[roundId];
 
-        if (!round.isComplete) {
-            revert RoundNotComplete();
-        }
-
-        if (round.hasClaimed[msg.sender]) {
-            revert AlreadyClaimed();
-        }
-
-        uint8 winningChoice = calculateWinningChoice(round.chainMove);
-        if (round.playerChoices[msg.sender] != winningChoice) {
-            revert NotWinner();
-        }
-
-        // Count winners
+        // Count winners first
         uint256 winnerCount = 0;
         for (uint256 i = 0; i < round.players.length; i++) {
             if (round.playerChoices[round.players[i]] == winningChoice) {
@@ -118,16 +108,32 @@ contract RockPaperScissorsGame is ReentrancyGuard, Ownable {
             }
         }
 
-        // Calculate winnings per player
-        uint256 winningsPerPlayer = round.prizePool / winnerCount;
-
-        round.hasClaimed[msg.sender] = true;
-
-        if (!USDC.transfer(msg.sender, winningsPerPlayer)) {
-            revert TransferFailed();
+        if (winnerCount == 0) {
+            // No winners - prize pool stays in contract for next round or emergency withdrawal
+            return;
         }
 
-        emit WinningsClaimed(roundId, msg.sender, winningsPerPlayer);
+        // Calculate winnings per winner
+        uint256 winningsPerPlayer = round.prizePool / winnerCount;
+
+        // Distribute to all winners automatically
+        for (uint256 i = 0; i < round.players.length; i++) {
+            address player = round.players[i];
+            if (round.playerChoices[player] == winningChoice && !round.hasClaimed[player]) {
+                round.hasClaimed[player] = true;
+
+                if (USDC.transfer(player, winningsPerPlayer)) {
+                    emit WinningsClaimed(roundId, player, winningsPerPlayer);
+                }
+            }
+        }
+    }
+
+    // Legacy function kept for compatibility - winnings are now distributed automatically
+    function claimWinnings(uint256 roundId) external view {
+        // All winnings are automatically distributed when rounds complete
+        // This function is kept for compatibility but does nothing
+        revert("Winnings distributed automatically");
     }
 
     function calculateWinningChoice(uint8 chainMove) public pure returns (uint8) {

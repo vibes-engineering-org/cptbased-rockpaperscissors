@@ -296,16 +296,18 @@ export default function RockPaperScissorsGame() {
 
                 {playerChoice === currentRound.winningChoice ? (
                   <div className="space-y-3">
-                    <div className="text-green-600 font-medium flex items-center justify-center gap-2 animate-bounce">
-                      <Trophy className="w-4 h-4" />
-                      🎉 You Won!
+                    <div className="bg-gradient-to-br from-green-100 via-emerald-100 to-lime-100 border-2 border-green-300 rounded-xl p-4 shadow-lg">
+                      <div className="text-green-600 font-medium flex items-center justify-center gap-2 animate-bounce mb-2">
+                        <Trophy className="w-4 h-4" />
+                        🎉 You Won!
+                      </div>
+                      <p className="text-center text-green-700 font-bold text-lg">
+                        Winnings Sent Automatically!
+                      </p>
+                      <p className="text-center text-sm text-green-600">
+                        Your share of the prize pool has been automatically transferred to your wallet when this round completed.
+                      </p>
                     </div>
-                    <Button
-                      onClick={() => claimWinnings(currentRound.id)}
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg"
-                    >
-                      💰 Claim Winnings
-                    </Button>
                   </div>
                 ) : playerChoice !== null ? (
                   <div className="text-red-600 font-medium">
@@ -461,77 +463,6 @@ export default function RockPaperScissorsGame() {
         </Card>
       )}
 
-      {/* Unclaimed Winnings */}
-      {context?.user && (() => {
-        const unclaimedWinnings = getUnclaimedWinnings();
-        return unclaimedWinnings.length > 0 ? (
-          <Card className="border-2 border-yellow-200 shadow-xl bg-gradient-to-br from-white via-yellow-50 to-amber-50">
-            <CardHeader className="pb-3 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-t-lg border-b-2 border-yellow-200">
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
-                <Trophy className="w-6 h-6 text-yellow-600" />
-                <span className="bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">Unclaimed Winnings</span>
-                <Badge variant="secondary" className="bg-yellow-500 text-yellow-50 ml-auto">
-                  {unclaimedWinnings.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="text-center mb-4">
-                  <p className="text-lg font-bold text-yellow-700 mb-1">
-                    Total Unclaimed: {formatUSDC(
-                      unclaimedWinnings.reduce((total, win) => total + win.prizeAmount, BigInt(0))
-                    )} USDC
-                  </p>
-                  <p className="text-sm text-yellow-600">Claim your winnings from completed rounds!</p>
-                </div>
-
-                <div className="space-y-3 max-h-48 overflow-y-auto">
-                  {unclaimedWinnings.map((winning) => (
-                    <div key={winning.roundId} className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-lg border border-yellow-300">
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col items-center">
-                          <span className="text-2xl">{getChoiceEmoji(winning.winningChoice)}</span>
-                          <span className="text-xs text-yellow-600 font-medium">
-                            Round #{winning.roundId}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-bold text-yellow-800">
-                            {formatUSDC(winning.prizeAmount)} USDC
-                          </p>
-                          <p className="text-sm text-yellow-600">
-                            Won with {getChoiceName(winning.winningChoice)}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => claimWinnings(winning.roundId)}
-                        size="sm"
-                        className="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white font-bold shadow-lg"
-                      >
-                        Claim
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <Button
-                  onClick={() => {
-                    unclaimedWinnings.forEach(winning => claimWinnings(winning.roundId));
-                  }}
-                  className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white font-bold py-3 shadow-lg"
-                  disabled={unclaimedWinnings.length === 0}
-                >
-                  Claim All Winnings ({formatUSDC(
-                    unclaimedWinnings.reduce((total, win) => total + win.prizeAmount, BigInt(0))
-                  )} USDC)
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null;
-      })()}
 
       {/* Leaderboard */}
       <Card className="border-2 border-yellow-200 shadow-xl bg-gradient-to-br from-white via-yellow-50 to-orange-50">
@@ -585,7 +516,7 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Winners split the pot equally</span>
+            <span>Winners split 91% of the prize pool equally - funds automatically sent to wallets when round completes</span>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-lg mt-0.5">🪨📄✂️</span>

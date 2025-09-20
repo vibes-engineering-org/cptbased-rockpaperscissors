@@ -538,6 +538,12 @@ export function useRockPaperScissors() {
       return;
     }
 
+    // Ensure user has enough USDC allowance
+    if (needsApproval) {
+      console.error("USDC approval required before entering game");
+      return;
+    }
+
     setIsSubmitting(true);
     setPaymentPendingChoice(choice);
 
@@ -614,29 +620,12 @@ export function useRockPaperScissors() {
     console.log("❌ Payment was canceled or failed - user is NOT entered in this round");
   }, []);
 
+  // Legacy function - winnings are now distributed automatically
   const claimWinnings = useCallback(async (roundId: number) => {
-    if (!context?.user?.fid || !address) return;
-
-    const userFid = context.user.fid.toString();
-
-    try {
-      console.log(`FID ${userFid} claiming winnings for round ${roundId} via smart contract`);
-
-      // Call the smart contract claimWinnings function
-      writeContract({
-        address: GAME_CONTRACT_ADDRESS,
-        abi: GAME_CONTRACT_ABI,
-        functionName: 'claimWinnings',
-        args: [BigInt(roundId)],
-      });
-
-      // Note: We'll mark as claimed after transaction confirms
-      // The smart contract will handle the actual USDC transfer
-      console.log(`📝 Claiming transaction submitted for FID ${userFid}, round ${roundId}`);
-    } catch (error) {
-      console.error("Failed to claim winnings:", error);
-    }
-  }, [context?.user?.fid, address, writeContract]);
+    console.log("Claim function called, but winnings are distributed automatically when rounds complete");
+    // This function is kept for backwards compatibility but does nothing
+    // All winnings are automatically distributed when rounds complete
+  }, []);
 
   const getChoiceName = (choice: GameChoice): string => {
     switch (choice) {
@@ -669,37 +658,11 @@ export function useRockPaperScissors() {
     }
   };
 
-  // Get unclaimed winnings for the current user
+  // Legacy function - winnings are distributed automatically
   const getUnclaimedWinnings = useCallback(() => {
-    if (!context?.user?.fid) return [];
-
-    const userFid = context.user.fid.toString();
-    const userClaimedRounds = claimedWinnings.get(userFid) ?? new Set<number>();
-    const unclaimed: Array<{
-      roundId: number;
-      prizeAmount: bigint;
-      winningChoice: GameChoice;
-    }> = [];
-
-    winners.forEach((roundWinners, roundId) => {
-      if (roundWinners.includes(userFid) && !userClaimedRounds.has(roundId)) {
-        const liveData = getLiveGameData(roundId);
-        // Winners get 91% of the prize pool, split evenly
-        const prizePerWinner = liveData.winnersShare / BigInt(roundWinners.length || 1);
-
-        // Only include unclaimed winnings
-        const winningChoice = calculateWinningChoice(generateChainMove(roundId));
-
-        unclaimed.push({
-          roundId,
-          prizeAmount: prizePerWinner,
-          winningChoice
-        });
-      }
-    });
-
-    return unclaimed.sort((a, b) => b.roundId - a.roundId); // Most recent first
-  }, [context?.user?.fid, winners, claimedWinnings, getLiveGameData, calculateWinningChoice, generateChainMove]);
+    // Always return empty array since winnings are distributed automatically
+    return [];
+  }, []);
 
   return {
     // Game state
