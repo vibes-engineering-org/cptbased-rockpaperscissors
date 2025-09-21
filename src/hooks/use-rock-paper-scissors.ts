@@ -51,7 +51,7 @@ const GAME_CONTRACT_ABI = [
   {
     name: "claimWinnings",
     type: "function",
-    stateMutability: "nonpayable",
+    stateMutability: "view",
     inputs: [
       { name: "roundId", type: "uint256" }
     ]
@@ -80,6 +80,17 @@ const GAME_CONTRACT_ABI = [
       { name: "chainMove", type: "uint8" },
       { name: "playerEntries", type: "uint256" },
       { name: "isComplete", type: "bool" }
+    ]
+  },
+  {
+    name: "calculateWinningChoice",
+    type: "function",
+    stateMutability: "pure",
+    inputs: [
+      { name: "chainMove", type: "uint8" }
+    ],
+    outputs: [
+      { name: "", type: "uint8" }
     ]
   }
 ] as const;

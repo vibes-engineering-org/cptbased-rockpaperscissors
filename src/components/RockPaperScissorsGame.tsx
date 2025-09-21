@@ -305,7 +305,7 @@ export default function RockPaperScissorsGame() {
                         Winnings Sent Automatically!
                       </p>
                       <p className="text-center text-sm text-green-600">
-                        Your share of the prize pool has been automatically transferred to your wallet when this round completed.
+                        Your share of the prize pool has been automatically transferred to your wallet when this round completed. No claiming required!
                       </p>
                     </div>
                   </div>
@@ -516,7 +516,7 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Winners split the pot equally - funds hit your wallet instantly when round ends</span>
+            <span>Winners split the 91% prize pool equally - automatic distribution, no claiming needed</span>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-lg mt-0.5">🪨📄✂️</span>
