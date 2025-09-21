@@ -204,7 +204,7 @@ export default function RockPaperScissorsGame() {
                               {paymentPendingChoice === choice ? (
                                 isConfirming ? "Entering Game..." : "Processing..."
                               ) : (
-                                "$1 USDC"
+                                "$1 USDC to enter"
                               )}
                             </Button>
                           )}
@@ -213,8 +213,8 @@ export default function RockPaperScissorsGame() {
                     </div>
                     <p className="text-center text-xs text-muted-foreground">
                       {needsApproval
-                        ? "First approve exactly $1.00 USDC spending, then select your choice. Must pay to enter."
-                        : `Entry requires exactly ${formatUSDC(ENTRY_COST)} USDC payment. Contract automatically: 9% ($0.09) to platform, 91% ($0.91) to winners.`
+                        ? "First approve $1 USDC spending, then pick your move to enter."
+                        : `Total paid: $1 USDC. Auto-split: $0.09 (9%) platform fee + $0.91 (91%) to prize pool.`
                       }
                     </p>
                   </div>
@@ -500,27 +500,27 @@ export default function RockPaperScissorsGame() {
         <CardContent className="text-sm text-slate-700 space-y-3 p-6">
           <div className="flex items-start gap-2">
             <Clock className="w-4 h-4 text-blue-500 mt-0.5" />
-            <span>New rounds start every 15 minutes, running continuously back-to-back</span>
+            <span>Rounds drop every 15 minutes - no downtime, continuous action</span>
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>MUST pay exactly $1.00 USDC to enter. No payment = no entry. One entry per Farcaster ID per round.</span>
+            <span>$1 USDC to enter. No bag = no play. One entry per degen per round.</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Smart contract automatically: $0.09 (9%) to platform, $0.91 (91%) to prize pool</span>
+            <span>Contract auto-splits: 9% dev fee, 91% straight to the prize pool</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
-            <span>Blockchain determines random move after entries close</span>
+            <span>Chain RNG picks the house move after entries close - pure on-chain randomness</span>
           </div>
           <div className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Winners split 91% of prize pool equally - funds automatically sent to wallets when round completes</span>
+            <span>Winners split the pot equally - funds hit your wallet instantly when round ends</span>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-lg mt-0.5">🪨📄✂️</span>
-            <span>Rock beats Scissors, Paper beats Rock, Scissors beats Paper</span>
+            <span>Classic rules: Rock smashes Scissors, Paper covers Rock, Scissors cut Paper</span>
           </div>
         </CardContent>
       </Card>
