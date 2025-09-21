@@ -204,7 +204,7 @@ export default function RockPaperScissorsGame() {
                               {paymentPendingChoice === choice ? (
                                 isConfirming ? "Entering Game..." : "Processing..."
                               ) : (
-                                "$1 USDC to enter"
+                                "$1 USDC"
                               )}
                             </Button>
                           )}
@@ -508,7 +508,7 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Contract auto-splits: 9% dev fee, 91% straight to the prize pool</span>
+            <span>Contract auto-splits: 9% platform fee, 91% straight to the prize pool</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
