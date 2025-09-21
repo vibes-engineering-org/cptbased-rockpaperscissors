@@ -9,8 +9,8 @@ contract RockPaperScissorsGame is ReentrancyGuard, Ownable {
     IERC20 public constant USDC = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913); // Base USDC
 
     uint256 public constant ENTRY_COST = 1000000; // 1 USDC (6 decimals)
-    uint256 public constant RAKE_AMOUNT = 90000; // 0.09 USDC (6 decimals)
-    uint256 public constant PRIZE_CONTRIBUTION = 910000; // 0.91 USDC (6 decimals)
+    uint256 public constant RAKE_AMOUNT = 90000; // 9% = 0.09 USDC (6 decimals)
+    uint256 public constant PRIZE_CONTRIBUTION = 910000; // 91% = 0.91 USDC (6 decimals)
 
     address public constant RAKE_ADDRESS = 0x9AE06d099415A8cD55ffCe40f998bC7356c9c798;
 
