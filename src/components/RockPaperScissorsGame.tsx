@@ -213,8 +213,8 @@ export default function RockPaperScissorsGame() {
                     </div>
                     <p className="text-center text-xs text-muted-foreground">
                       {needsApproval
-                        ? "First approve USDC spending, then select your choice. Entry costs $1.00 USDC total."
-                        : `Entry costs ${formatUSDC(ENTRY_COST)} USDC. Smart contract automatically: 9% to platform, 91% to winners.`
+                        ? "First approve exactly $1.00 USDC spending, then select your choice. Must pay to enter."
+                        : `Entry requires exactly ${formatUSDC(ENTRY_COST)} USDC payment. Contract automatically: 9% ($0.09) to platform, 91% ($0.91) to winners.`
                       }
                     </p>
                   </div>
@@ -504,11 +504,11 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <DollarSign className="w-4 h-4 text-green-500 mt-0.5" />
-            <span>$1 USDC entry fee: smart contract automatically sends 9% to platform, 91% to prize pool</span>
+            <span>MUST pay exactly $1.00 USDC to enter. No payment = no entry. One entry per Farcaster ID per round.</span>
           </div>
           <div className="flex items-start gap-2">
             <Shield className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Two-step process: approve USDC spending, then enter game with choice</span>
+            <span>Smart contract automatically: $0.09 (9%) to platform, $0.91 (91%) to prize pool</span>
           </div>
           <div className="flex items-start gap-2">
             <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
@@ -516,7 +516,7 @@ export default function RockPaperScissorsGame() {
           </div>
           <div className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-purple-500 mt-0.5" />
-            <span>Winners split 91% of the prize pool equally - funds automatically sent to wallets when round completes</span>
+            <span>Winners split 91% of prize pool equally - funds automatically sent to wallets when round completes</span>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-lg mt-0.5">🪨📄✂️</span>

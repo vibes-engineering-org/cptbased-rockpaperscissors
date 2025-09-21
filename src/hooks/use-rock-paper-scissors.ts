@@ -287,30 +287,7 @@ export function useRockPaperScissors() {
     };
   }, []);
 
-  // Calculate live participant count and prize pool based on current entries
-  const getLiveGameData = useCallback((roundId: number) => {
-    // Count unique FIDs who entered this round
-    const uniqueParticipants = Array.from(playerEntries.values()).reduce(
-      (count, roundSet) => count + (roundSet.has(roundId) ? 1 : 0),
-      0
-    );
-
-    // Smart contract behavior: each player pays 1 USDC total
-    // Contract automatically sends 9% ($0.09) to owner, puts 91% ($0.91) in prize pool
-    const totalCollected = BigInt(uniqueParticipants) * ENTRY_COST; // Total $1.00 per player
-    const ownerFee = (totalCollected * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100); // 9% = $0.09 per player
-    const actualPrizePool = totalCollected - ownerFee; // 91% = $0.91 per player
-
-    return {
-      playerEntries: uniqueParticipants,
-      prizePool: actualPrizePool, // Show actual prize pool (91% of total)
-      totalCollected, // Total USDC collected from players
-      ownerFee,
-      winnersShare: actualPrizePool // Winners get the entire prize pool
-    };
-  }, [playerEntries]);
-
-  const formatUSDC = (amount: bigint): string => {
+  const formatUSDC = useCallback((amount: bigint): string => {
     // USDC has 6 decimals
     const divisor = BigInt(1000000);
     const whole = amount / divisor;
@@ -329,23 +306,83 @@ export function useRockPaperScissors() {
     }
 
     return `${whole}.${trimmedFractional}`;
-  };
+  }, []);
+
+  const getChoiceName = useCallback((choice: GameChoice): string => {
+    switch (choice) {
+      case 0: return "Rock";
+      case 1: return "Paper";
+      case 2: return "Scissors";
+    }
+  }, []);
+
+  const getChoiceEmoji = useCallback((choice: GameChoice): string => {
+    switch (choice) {
+      case 0: return "🪨";
+      case 1: return "📄";
+      case 2: return "✂️";
+    }
+  }, []);
+
+  // Calculate live participant count and prize pool based on current entries
+  // STRICT PAYMENT ENFORCEMENT: Only count entries with confirmed $1 USDC payment
+  const getLiveGameData = useCallback((roundId: number) => {
+    // Count unique FIDs who PAID and entered this round (not just clicked)
+    const uniqueParticipants = Array.from(playerEntries.values()).reduce(
+      (count, roundSet) => count + (roundSet.has(roundId) ? 1 : 0),
+      0
+    );
+
+    // PAYMENT FLOW: Each entrant MUST pay exactly $1.00 USDC to be counted
+    // Smart contract automatically distributes: 9% to owner, 91% to prize pool
+    const totalPaid = BigInt(uniqueParticipants) * ENTRY_COST; // Each player paid exactly $1.00 USDC
+    const ownerFee = (totalPaid * BigInt(PLATFORM_FEE_PERCENTAGE)) / BigInt(100); // 9% = $0.09 per paid entry
+    const prizePoolAmount = totalPaid - ownerFee; // 91% = $0.91 per paid entry
+
+    console.log(`Round ${roundId} Payment Summary:`);
+    console.log(`  - Paid Entrants: ${uniqueParticipants} (only counting those who paid $1.00 USDC)`);
+    console.log(`  - Total Collected: $${formatUSDC(totalPaid)} USDC`);
+    console.log(`  - Owner Fee (9%): $${formatUSDC(ownerFee)} USDC`);
+    console.log(`  - Prize Pool (91%): $${formatUSDC(prizePoolAmount)} USDC`);
+
+    return {
+      playerEntries: uniqueParticipants, // Only those who actually paid
+      prizePool: prizePoolAmount, // 91% of total payments
+      totalCollected: totalPaid, // Total USDC received from entrants
+      ownerFee: ownerFee, // 9% goes to creator
+      winnersShare: prizePoolAmount // Winners split the 91% prize pool equally
+    };
+  }, [playerEntries, formatUSDC]);
 
   // Generate winners for completed rounds and update leaderboard
+  // PRIZE DISTRIBUTION: 91% of total collected USDC goes to winners, split equally
   const updateWinnersAndLeaderboard = useCallback((roundId: number, winningChoice: GameChoice) => {
-    // Find all players who entered this round with the winning choice
-    // For demo purposes, we'll simulate this by randomly selecting some entries
-    const allEntrants = Array.from(playerEntries.entries())
+    // Find all players who PAID to enter this round (only paid entries count)
+    const allPaidEntrants = Array.from(playerEntries.entries())
       .filter(([_, rounds]) => rounds.has(roundId))
       .map(([fid]) => fid);
 
-    if (allEntrants.length === 0) return;
+    if (allPaidEntrants.length === 0) {
+      console.log(`Round ${roundId}: No paid entrants, no prizes to distribute`);
+      return;
+    }
 
-    // Simulate winner selection (in production, this would be determined by blockchain)
-    const numWinners = Math.max(1, Math.floor(allEntrants.length * 0.3)); // ~30% win rate
-    const roundWinners = allEntrants
+    // Simulate winner selection based on winning choice
+    // In production, this would check each player's actual choice from the smart contract
+    const numWinners = Math.max(1, Math.floor(allPaidEntrants.length * 0.3)); // ~30% win rate simulation
+    const roundWinners = allPaidEntrants
       .sort(() => Math.random() - 0.5)
       .slice(0, numWinners);
+
+    const liveData = getLiveGameData(roundId);
+    const winnersShare = liveData.winnersShare; // This is 91% of total collected USDC
+    const winningsPerWinner = winnersShare / BigInt(roundWinners.length);
+
+    console.log(`Round ${roundId} Prize Distribution:`);
+    console.log(`  - Winners: ${roundWinners.length} players`);
+    console.log(`  - Total Prize Pool (91%): $${formatUSDC(winnersShare)} USDC`);
+    console.log(`  - Prize per Winner: $${formatUSDC(winningsPerWinner)} USDC`);
+    console.log(`  - Owner Fee (9%): $${formatUSDC(liveData.ownerFee)} USDC sent to ${CREATOR_ADDRESS}`);
 
     // Update winners map
     const updatedWinners = new Map(winners);
@@ -359,30 +396,33 @@ export function useRockPaperScissors() {
     // Update leaderboard with actual winner data
     const winnerStats = new Map<string, { wins: number; totalWinnings: bigint }>();
 
-    // Count wins and calculate winnings for each player
+    // Calculate cumulative wins and earnings for each player
     updatedWinners.forEach((roundWinners, completedRoundId) => {
-      const liveData = getLiveGameData(completedRoundId);
-      // Winners get 91% of the total prize pool, split evenly
-      const winnersShare = liveData.winnersShare;
-      const winningsPerPlayer = winnersShare / BigInt(roundWinners.length || 1);
+      const roundData = getLiveGameData(completedRoundId);
+      // Each winner gets their equal share of the 91% prize pool
+      const prizePerWinner = roundData.winnersShare / BigInt(roundWinners.length || 1);
 
       roundWinners.forEach(fid => {
         const current = winnerStats.get(fid) || { wins: 0, totalWinnings: BigInt(0) };
         winnerStats.set(fid, {
           wins: current.wins + 1,
-          totalWinnings: current.totalWinnings + winningsPerPlayer
+          totalWinnings: current.totalWinnings + prizePerWinner
         });
       });
     });
 
-    // Convert to leaderboard format and sort by wins
+    // Convert to leaderboard format and sort by total winnings
     const newLeaderboard = Array.from(winnerStats.entries())
       .map(([fid, stats]) => ({
         address: `FID ${fid}`,
         wins: stats.wins,
         totalWinnings: formatUSDC(stats.totalWinnings)
       }))
-      .sort((a, b) => b.wins - a.wins)
+      .sort((a, b) => {
+        const aWinnings = parseFloat(a.totalWinnings);
+        const bWinnings = parseFloat(b.totalWinnings);
+        return bWinnings - aWinnings; // Sort by highest winnings
+      })
       .slice(0, 10);
 
     setLeaderboard(newLeaderboard);
@@ -525,22 +565,38 @@ export function useRockPaperScissors() {
   }, [address, writeContract]);
 
   const enterGame = useCallback(async (choice: GameChoice) => {
-    if (!currentRound || gameState !== "entry" || !address || !context?.user?.fid) return;
+    if (!currentRound || gameState !== "entry" || !address || !context?.user?.fid) {
+      console.error("Invalid entry conditions:", {
+        hasCurrentRound: !!currentRound,
+        gameState,
+        hasAddress: !!address,
+        hasFid: !!context?.user?.fid
+      });
+      return;
+    }
 
-    // Check if user has already entered this round or has payment pending
+    // Strict enforcement: Check if user has already entered this round
     if (hasUserEnteredRound(currentRound.id)) {
-      console.log(`User FID ${context.user.fid} has already entered round ${currentRound.id}`);
+      console.error(`ENTRY BLOCKED: User FID ${context.user.fid} has already entered round ${currentRound.id}. Only 1 entry per Farcaster ID per round allowed.`);
       return;
     }
 
+    // Check if payment is already pending for this user
     if (paymentPendingChoice !== null) {
-      console.log("Payment already pending for this round");
+      console.error("ENTRY BLOCKED: Payment already pending for this round");
       return;
     }
 
-    // Ensure user has enough USDC allowance
+    // Strict enforcement: Ensure user has approved exactly $1.00 USDC or more
     if (needsApproval) {
-      console.error("USDC approval required before entering game");
+      console.error("ENTRY BLOCKED: USDC approval required. Must approve exactly $1.00 USDC before entering game");
+      return;
+    }
+
+    // Final validation: Check allowance amount
+    const currentAllowance = allowance as bigint;
+    if (currentAllowance < ENTRY_COST) {
+      console.error(`ENTRY BLOCKED: Insufficient USDC allowance. Required: $1.00 USDC (${ENTRY_COST}), Current: ${formatUSDC(currentAllowance)}`);
       return;
     }
 
@@ -548,11 +604,12 @@ export function useRockPaperScissors() {
     setPaymentPendingChoice(choice);
 
     try {
-      console.log(`FID ${context.user.fid} entering game with choice ${choice} - calling smart contract...`);
-      console.log(`Smart contract will charge $1.00 USDC, send 9% to owner, and 91% to prize pool`);
+      console.log(`🎮 FID ${context.user.fid} entering Round ${currentRound.id} with choice ${choice} (${getChoiceName(choice)})`);
+      console.log(`💰 Smart contract will charge exactly $1.00 USDC: 9% ($0.09) to owner, 91% ($0.91) to prize pool`);
+      console.log(`📊 Prize pool will increase by $0.91, Owner fee: $0.09`);
 
       // Call the smart contract enterGame function
-      // The contract will handle USDC transfer via transferFrom (user must have approved)
+      // The contract MUST charge exactly $1.00 USDC via transferFrom
       writeContract({
         address: GAME_CONTRACT_ADDRESS,
         abi: GAME_CONTRACT_ABI,
@@ -564,33 +621,35 @@ export function useRockPaperScissors() {
       setIsSubmitting(false);
       setPaymentPendingChoice(null);
     }
-  }, [currentRound, gameState, address, hasUserEnteredRound, paymentPendingChoice, writeContract, context?.user?.fid]);
+  }, [currentRound, gameState, address, hasUserEnteredRound, paymentPendingChoice, writeContract, context?.user?.fid, needsApproval, allowance, formatUSDC, getChoiceName]);
 
-  // Handle transaction confirmations
+  // Handle transaction confirmations - Strict payment enforcement
   useEffect(() => {
     if (isConfirmed && hash) {
       if (isApproving) {
         // Approval transaction confirmed
-        console.log(`✅ USDC approval confirmed!`);
+        console.log(`✅ USDC approval confirmed for $1.00 USDC!`);
         console.log(`   Transaction hash: ${hash}`);
+        console.log(`   User can now enter the game`);
         setIsApproving(false);
         // Refetch allowance to update the needsApproval state
         refetchAllowance();
       } else if (paymentPendingChoice !== null && currentRound && context?.user?.fid) {
-        // Entry transaction confirmed
-        console.log(`✅ Smart contract entry confirmed!`);
+        // Entry transaction confirmed - User has officially paid and entered
+        console.log(`✅ PAYMENT SUCCESS: Smart contract entry confirmed!`);
         console.log(`   Transaction hash: ${hash}`);
-        console.log(`🎉 FID ${context.user.fid} successfully entered Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
-        console.log(`💰 Contract automatically: charged $1.00 USDC, sent $0.09 to owner, $0.91 to prize pool`);
+        console.log(`🎉 FID ${context.user.fid} OFFICIALLY ENTERED Round ${currentRound.id} with choice ${paymentPendingChoice} (${getChoiceName(paymentPendingChoice)})`);
+        console.log(`💰 CONTRACT CONFIRMED: Charged exactly $1.00 USDC, sent $0.09 to owner ${CREATOR_ADDRESS}, $0.91 to prize pool`);
+        console.log(`🔒 ENTRY RESTRICTIONS: FID ${context.user.fid} is now blocked from entering Round ${currentRound.id} again`);
 
-        // Set player choice and add entry after transaction succeeds
+        // ONLY mark as entered after transaction confirms (no payment = no entry)
         setPlayerChoice(paymentPendingChoice);
         addUserEntry(currentRound.id);
 
         // Reset all states
         setIsSubmitting(false);
         setPaymentPendingChoice(null);
-        // Refetch allowance since USDC was spent
+        // Refetch allowance since exactly $1.00 USDC was spent
         refetchAllowance();
       }
     }
@@ -598,15 +657,17 @@ export function useRockPaperScissors() {
     if (writeError) {
       console.error("Transaction failed:", writeError);
       if (isApproving) {
-        console.log(`❌ USDC approval failed`);
+        console.log(`❌ USDC approval transaction failed`);
         setIsApproving(false);
       } else {
-        console.log(`❌ Smart contract entry failed - user FID ${context?.user?.fid} is NOT entered in this round`);
+        console.log(`❌ PAYMENT FAILED: Smart contract entry transaction failed`);
+        console.log(`🚫 FID ${context?.user?.fid} is NOT entered in Round ${currentRound?.id} - no payment was processed`);
+        console.log(`💸 No USDC was charged, user can try again`);
         setIsSubmitting(false);
         setPaymentPendingChoice(null);
       }
     }
-  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, context?.user?.fid, isApproving, refetchAllowance]);
+  }, [isConfirmed, hash, paymentPendingChoice, currentRound, writeError, addUserEntry, context?.user?.fid, isApproving, refetchAllowance, getChoiceName]);
 
   // Legacy functions for backwards compatibility with existing UI
   const onPaymentCompleted = useCallback((choice: GameChoice) => {
@@ -626,22 +687,6 @@ export function useRockPaperScissors() {
     // This function is kept for backwards compatibility but does nothing
     // All winnings are automatically distributed when rounds complete
   }, []);
-
-  const getChoiceName = (choice: GameChoice): string => {
-    switch (choice) {
-      case 0: return "Rock";
-      case 1: return "Paper";
-      case 2: return "Scissors";
-    }
-  };
-
-  const getChoiceEmoji = (choice: GameChoice): string => {
-    switch (choice) {
-      case 0: return "🪨";
-      case 1: return "📄";
-      case 2: return "✂️";
-    }
-  };
 
   const formatTimeRemaining = (ms: number): string => {
     const totalSeconds = Math.floor(ms / 1000);
