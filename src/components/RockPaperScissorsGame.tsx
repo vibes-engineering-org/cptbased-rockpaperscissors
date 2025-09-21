@@ -214,7 +214,7 @@ export default function RockPaperScissorsGame() {
                     <p className="text-center text-xs text-muted-foreground">
                       {needsApproval
                         ? "First approve $1 USDC spending, then pick your move to enter."
-                        : `Total paid: $1 USDC. Auto-split: $0.09 (9%) platform fee + $0.91 (91%) to prize pool.`
+                        : `You send $1 USDC to prize pool. Auto-split: $0.09 (9%) rake + $0.91 (91%) to winners.`
                       }
                     </p>
                   </div>
